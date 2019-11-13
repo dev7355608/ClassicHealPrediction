@@ -1,0 +1,14 @@
+## Interface: 11302
+## Title: ClassicHealPrediction
+## Notes: Adds heal prediction to the default unit frames and nameplates
+## Version: @project-version@
+## Author: dev7355608
+## SavedVariablesPerCharacter: ClassicHealPredictionSettings
+
+## X-Curse-Project-ID: 351332
+
+libs\LibStub\LibStub.lua
+libs\CallbackHandler-1.0\CallbackHandler-1.0.xml
+libs\LibHealComm-4.0\LibHealComm-4.0.xml
+
+ClassicHealPrediction.xml
