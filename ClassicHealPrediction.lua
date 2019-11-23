@@ -631,11 +631,11 @@ hooksecurefunc(
         frame.myHealAbsorbLeftShadow = frame.healthBar.myHealAbsorbLeftShadow
         frame.myHealAbsorbRightShadow = frame.healthBar.myHealAbsorbRightShadow
         frame.overHealAbsorbGlow = frame.healthBar.overHealAbsorbGlow
-        frame.myHealPrediction:SetVertexColor(0.0, 0.659, 0.608)
-        frame._CHP_myOverhealPrediction:SetVertexColor(168 / 255, 39 / 255, 0)
+        frame.myHealPrediction:SetVertexColor(0.0, 0.827, 0.765)
+        frame._CHP_myOverhealPrediction:SetVertexColor(0.827, 0.192, 0.0)
         frame.myHealAbsorb:SetTexture("Interface\\RaidFrame\\Absorb-Fill", true, true)
-        frame.otherHealPrediction:SetVertexColor(0.0, 0.659, 0.608)
-        frame._CHP_otherOverhealPrediction:SetVertexColor(168 / 255, 39 / 255, 0)
+        frame.otherHealPrediction:SetVertexColor(0.0, 0.631, 0.557)
+        frame._CHP_otherOverhealPrediction:SetVertexColor(0.631, 0.137, 0.0)
         frame.totalAbsorb:SetTexture("Interface\\RaidFrame\\Shield-Fill")
         frame.totalAbsorb.overlay = frame.totalAbsorbOverlay
         frame.totalAbsorbOverlay:SetTexture("Interface\\RaidFrame\\Shield-Overlay", true, true)
