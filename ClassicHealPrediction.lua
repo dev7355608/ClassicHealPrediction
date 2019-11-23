@@ -1242,12 +1242,12 @@ local function ClassicHealPredictionFrame_OnLoad(self)
     local description = self:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     description:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -10)
     description:SetTextColor(1.0, 1.0, 1.0)
-    description:SetText("These options only affect the prediction of healing from sources other than youself.")
+    description:SetText("These options affect only the prediction of healing from sources other than yourself.")
 
     local description2 = self:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     description2:SetPoint("TOPLEFT", description, "BOTTOMLEFT", 0, -5)
     description2:SetTextColor(1.0, 1.0, 1.0)
-    description2:SetText("Your own healing spells are always predicted entirely.")
+    description2:SetText("The prediction of your own healing spells is always enabled without any restrictions.")
 
     checkBoxes = {}
 
@@ -1349,14 +1349,14 @@ local function ClassicHealPredictionFrame_OnLoad(self)
 
     sliderCheckBox:SetPoint("TOPLEFT", checkBoxes[#checkBoxes], "BOTTOMLEFT", 0, 0)
     sliderCheckBox.text = _G[sliderCheckBoxName .. "Text"]
-    sliderCheckBox.text:SetText("Only show healing within the next ... seconds")
+    sliderCheckBox.text:SetText("Show only healing within the next ... seconds")
     sliderCheckBox.text:SetTextColor(1, 1, 1)
 
     slider:SetPoint("TOPLEFT", sliderCheckBox, "BOTTOMRIGHT", 0, -15)
     slider.text = _G[sliderName .. "Text"]
     slider.textLow = _G[sliderName .. "Low"]
     slider.textHigh = _G[sliderName .. "High"]
-    slider:SetWidth(250)
+    slider:SetWidth(300)
     slider:SetMinMaxValues(0.0, 30.0)
     slider:SetValueStep(0.1)
     slider:SetObeyStepOnDrag(true)
