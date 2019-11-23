@@ -703,14 +703,20 @@ local function initUnitFrame(self, textures)
     local name = self:GetName()
 
     for _, texture in ipairs(textures) do
-        local textureName, layer, subLayer = texture[1], texture[2], texture[3]
+        local depths, textureName, layer, subLayer = texture[1], texture[2], texture[3], texture[4]
         local template = textureName .. "Template"
 
         if textureName == "ManaCostPredictionBar" then
             template = "MyManaCostPredictionBarTemplate"
         end
 
-        self:CreateTexture(name .. textureName, layer, template, subLayer)
+        local frame = self
+
+        for _, depth in ipairs(depths) do
+            frame = select(depth, frame:GetChildren())
+        end
+
+        frame:CreateTexture(name .. textureName, layer, template, subLayer)
     end
 
     self.myHealPredictionBar = _G[name .. "MyHealPredictionBar"]
@@ -1150,46 +1156,46 @@ local function ClassicHealPredictionFrame_OnLoad(self)
     initUnitFrame(
         PlayerFrame,
         {
-            {"TotalAbsorbBar", "ARTWORK"},
-            {"TotalAbsorbBarOverlay", "ARTWORK", 1},
-            {"MyHealPredictionBar", "BACKGROUND"},
-            {"OtherHealPredictionBar", "BACKGROUND"},
-            {"ManaCostPredictionBar", "BACKGROUND"},
-            {"HealAbsorbBar", "BACKGROUND"},
-            {"HealAbsorbBarLeftShadow", "BACKGROUND"},
-            {"HealAbsorbBarRightShadow", "BACKGROUND"},
-            {"OverAbsorbGlow", "ARTWORK", 1},
-            {"OverHealAbsorbGlow", "ARTWORK", 1}
+            {{}, "TotalAbsorbBar", "ARTWORK"},
+            {{}, "TotalAbsorbBarOverlay", "ARTWORK", 1},
+            {{1, 1}, "MyHealPredictionBar", "BACKGROUND"},
+            {{1, 1}, "OtherHealPredictionBar", "BACKGROUND"},
+            {{1, 1}, "ManaCostPredictionBar", "BACKGROUND"},
+            {{1, 1}, "HealAbsorbBar", "BACKGROUND"},
+            {{1, 1}, "HealAbsorbBarLeftShadow", "BACKGROUND"},
+            {{1, 1}, "HealAbsorbBarRightShadow", "BACKGROUND"},
+            {{1, 1}, "OverAbsorbGlow", "ARTWORK", 1},
+            {{1, 1}, "OverHealAbsorbGlow", "ARTWORK", 1}
         }
     )
 
     initUnitFrame(
         PetFrame,
         {
-            {"TotalAbsorbBar", "ARTWORK"},
-            {"TotalAbsorbBarOverlay", "ARTWORK", 1},
-            {"MyHealPredictionBar", "BACKGROUND"},
-            {"OtherHealPredictionBar", "BACKGROUND"},
-            {"HealAbsorbBar", "BACKGROUND"},
-            {"HealAbsorbBarLeftShadow", "BACKGROUND"},
-            {"HealAbsorbBarRightShadow", "BACKGROUND"},
-            {"OverAbsorbGlow", "ARTWORK"},
-            {"OverHealAbsorbGlow", "ARTWORK"}
+            {{}, "TotalAbsorbBar", "ARTWORK"},
+            {{}, "TotalAbsorbBarOverlay", "ARTWORK", 1},
+            {{2, 1}, "MyHealPredictionBar", "BACKGROUND"},
+            {{2, 1}, "OtherHealPredictionBar", "BACKGROUND"},
+            {{2, 1}, "HealAbsorbBar", "BACKGROUND"},
+            {{2, 1}, "HealAbsorbBarLeftShadow", "BACKGROUND"},
+            {{2, 1}, "HealAbsorbBarRightShadow", "BACKGROUND"},
+            {{2, 1}, "OverAbsorbGlow", "ARTWORK"},
+            {{2, 1}, "OverHealAbsorbGlow", "ARTWORK"}
         }
     )
 
     initUnitFrame(
         TargetFrame,
         {
-            {"TotalAbsorbBar", "ARTWORK"},
-            {"MyHealPredictionBar", "ARTWORK", 1},
-            {"OtherHealPredictionBar", "ARTWORK", 1},
-            {"HealAbsorbBar", "ARTWORK", 1},
-            {"HealAbsorbBarLeftShadow", "ARTWORK", 1},
-            {"HealAbsorbBarRightShadow", "ARTWORK", 1},
-            {"TotalAbsorbBarOverlay", "ARTWORK", 1},
-            {"OverAbsorbGlow", "ARTWORK", 1},
-            {"OverHealAbsorbGlow", "ARTWORK", 1}
+            {{}, "TotalAbsorbBar", "ARTWORK"},
+            {{}, "MyHealPredictionBar", "ARTWORK", 1},
+            {{}, "OtherHealPredictionBar", "ARTWORK", 1},
+            {{}, "HealAbsorbBar", "ARTWORK", 1},
+            {{}, "HealAbsorbBarLeftShadow", "ARTWORK", 1},
+            {{}, "HealAbsorbBarRightShadow", "ARTWORK", 1},
+            {{}, "TotalAbsorbBarOverlay", "ARTWORK", 1},
+            {{1}, "OverAbsorbGlow", "ARTWORK", 1},
+            {{1}, "OverHealAbsorbGlow", "ARTWORK", 1}
         }
     )
 
@@ -1197,15 +1203,15 @@ local function ClassicHealPredictionFrame_OnLoad(self)
         initUnitFrame(
             PartyMemberFrame[i],
             {
-                {"TotalAbsorbBar", "ARTWORK"},
-                {"TotalAbsorbBarOverlay", "ARTWORK", 1},
-                {"MyHealPredictionBar", "BACKGROUND"},
-                {"OtherHealPredictionBar", "BACKGROUND"},
-                {"HealAbsorbBar", "BACKGROUND"},
-                {"HealAbsorbBarLeftShadow", "BACKGROUND"},
-                {"HealAbsorbBarRightShadow", "BACKGROUND"},
-                {"OverAbsorbGlow", "ARTWORK"},
-                {"OverHealAbsorbGlow", "ARTWORK"}
+                {{}, "TotalAbsorbBar", "ARTWORK"},
+                {{}, "TotalAbsorbBarOverlay", "ARTWORK", 1},
+                {{2, 1}, "MyHealPredictionBar", "BACKGROUND"},
+                {{2, 1}, "OtherHealPredictionBar", "BACKGROUND"},
+                {{2, 1}, "HealAbsorbBar", "BACKGROUND"},
+                {{2, 1}, "HealAbsorbBarLeftShadow", "BACKGROUND"},
+                {{2, 1}, "HealAbsorbBarRightShadow", "BACKGROUND"},
+                {{2, 1}, "OverAbsorbGlow", "ARTWORK"},
+                {{2, 1}, "OverHealAbsorbGlow", "ARTWORK"}
             }
         )
 
