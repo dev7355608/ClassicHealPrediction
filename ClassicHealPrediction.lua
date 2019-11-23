@@ -104,7 +104,8 @@ local ClassicHealPredictionDefaultSettings = {
     myFilter = toggleValue(HealComm.ALL_HEALS, true),
     otherFilter = toggleValue(HealComm.ALL_HEALS, true),
     myDelta = toggleValue(3, false),
-    otherDelta = toggleValue(3, false)
+    otherDelta = toggleValue(3, false),
+    overhealThreshold = toggleValue(0.2, false)
 }
 local ClassicHealPredictionSettings = ClassicHealPredictionDefaultSettings
 
@@ -144,10 +145,12 @@ local loadedSettings = false
 local loadedFrame = false
 local checkBoxes
 local slider
+local slider2
 local sliderCheckBox
+local sliderCheckBox2
 
 local function getIncomingHeals(unit)
-    if not UnitIsFriend("player", unit) then
+    if not unit or not UnitIsFriend("player", unit) then
         return nil, nil
     end
 
@@ -168,7 +171,7 @@ end
 local CompactUnitFrame_MAX_INC_HEAL_OVERFLOW = 1.05
 
 local function CompactUnitFrame_UpdateHealPrediction(frame)
-    if not frame.myHealPrediction then
+    if not frame.myHealPrediction or not frame._CHP_myOverhealPrediction then
         return
     end
 
@@ -192,6 +195,8 @@ local function CompactUnitFrame_UpdateHealPrediction(frame)
     else
         frame.overHealAbsorbGlow:Hide()
     end
+
+    local overhealing = max((health - myCurrentHealAbsorb + allIncomingHeal) / maxHealth - 1, 0)
 
     if health - myCurrentHealAbsorb + allIncomingHeal > maxHealth * CompactUnitFrame_MAX_INC_HEAL_OVERFLOW then
         allIncomingHeal = maxHealth * CompactUnitFrame_MAX_INC_HEAL_OVERFLOW - health + myCurrentHealAbsorb
@@ -255,8 +260,18 @@ local function CompactUnitFrame_UpdateHealPrediction(frame)
         frame.myHealAbsorbLeftShadow:Hide()
     end
 
-    local incomingHealsTexture = CompactUnitFrameUtil_UpdateFillBar(frame, healthTexture, frame.myHealPrediction, myIncomingHeal, -myCurrentHealAbsorbPercent)
-    incomingHealsTexture = CompactUnitFrameUtil_UpdateFillBar(frame, incomingHealsTexture, frame.otherHealPrediction, otherIncomingHeal)
+    local myHealPrediction1, myHealPrediction2 = frame.myHealPrediction, frame._CHP_myOverhealPrediction
+    local otherHealPrediction1, otherHealPrediction2 = frame.otherHealPrediction, frame._CHP_otherOverhealPrediction
+
+    if ClassicHealPredictionSettings.overhealThreshold >= 0 and overhealing > ClassicHealPredictionSettings.overhealThreshold then
+        myHealPrediction1, myHealPrediction2 = myHealPrediction2, myHealPrediction1
+        otherHealPrediction1, otherHealPrediction2 = otherHealPrediction2, otherHealPrediction1
+    end
+
+    local incomingHealsTexture = CompactUnitFrameUtil_UpdateFillBar(frame, healthTexture, myHealPrediction1, myIncomingHeal, -myCurrentHealAbsorbPercent)
+    incomingHealsTexture = CompactUnitFrameUtil_UpdateFillBar(frame, incomingHealsTexture, myHealPrediction2, 0)
+    incomingHealsTexture = CompactUnitFrameUtil_UpdateFillBar(frame, incomingHealsTexture, otherHealPrediction1, otherIncomingHeal)
+    incomingHealsTexture = CompactUnitFrameUtil_UpdateFillBar(frame, incomingHealsTexture, otherHealPrediction2, 0)
 
     local appendTexture = healAbsorbTexture or incomingHealsTexture
 
@@ -266,7 +281,7 @@ end
 local UnitFrame_MAX_INC_HEAL_OVERFLOW = 1.0
 
 local function UnitFrameHealPredictionBars_Update(frame)
-    if not frame.myHealPredictionBar then
+    if not frame.myHealPredictionBar or not frame._CHP_myOverhealPredictionBar then
         return
     end
 
@@ -294,6 +309,8 @@ local function UnitFrameHealPredictionBars_Update(frame)
             frame.overHealAbsorbGlow:Hide()
         end
     end
+
+    local overhealing = max((health - myCurrentHealAbsorb + allIncomingHeal) / maxHealth - 1, 0)
 
     if health - myCurrentHealAbsorb + allIncomingHeal > maxHealth * UnitFrame_MAX_INC_HEAL_OVERFLOW then
         allIncomingHeal = maxHealth * UnitFrame_MAX_INC_HEAL_OVERFLOW - health + myCurrentHealAbsorb
@@ -361,21 +378,26 @@ local function UnitFrameHealPredictionBars_Update(frame)
         end
     end
 
-    local incomingHealTexture = UnitFrameUtil_UpdateFillBar(frame, healthTexture, frame.myHealPredictionBar, myIncomingHeal, -myCurrentHealAbsorbPercent)
+    local myHealPredictionBar1, myHealPredictionBar2 = frame.myHealPredictionBar, frame._CHP_myOverhealPredictionBar
+    local otherHealPredictionBar1, otherHealPredictionBar2 = frame.otherHealPredictionBar, frame._CHP_otherOverhealPredictionBar
+
+    if ClassicHealPredictionSettings.overhealThreshold >= 0 and overhealing > ClassicHealPredictionSettings.overhealThreshold then
+        myHealPredictionBar1, myHealPredictionBar2 = myHealPredictionBar2, myHealPredictionBar1
+        otherHealPredictionBar1, otherHealPredictionBar2 = otherHealPredictionBar2, otherHealPredictionBar1
+    end
+
+    local incomingHealsTexture = UnitFrameUtil_UpdateFillBar(frame, healthTexture, myHealPredictionBar1, myIncomingHeal, -myCurrentHealAbsorbPercent)
+    incomingHealsTexture = UnitFrameUtil_UpdateFillBar(frame, incomingHealsTexture, myHealPredictionBar2, 0)
 
     if myIncomingHeal > 0 then
-        incomingHealTexture = UnitFrameUtil_UpdateFillBar(frame, incomingHealTexture, frame.otherHealPredictionBar, otherIncomingHeal)
+        incomingHealsTexture = UnitFrameUtil_UpdateFillBar(frame, incomingHealsTexture, otherHealPredictionBar1, otherIncomingHeal)
+        incomingHealsTexture = UnitFrameUtil_UpdateFillBar(frame, incomingHealsTexture, otherHealPredictionBar2, 0)
     else
-        incomingHealTexture = UnitFrameUtil_UpdateFillBar(frame, healthTexture, frame.otherHealPredictionBar, otherIncomingHeal, -myCurrentHealAbsorbPercent)
+        incomingHealsTexture = UnitFrameUtil_UpdateFillBar(frame, healthTexture, otherHealPredictionBar1, otherIncomingHeal, -myCurrentHealAbsorbPercent)
+        incomingHealsTexture = UnitFrameUtil_UpdateFillBar(frame, incomingHealsTexture, otherHealPredictionBar2, 0)
     end
 
-    local appendTexture
-
-    if healAbsorbTexture then
-        appendTexture = healAbsorbTexture
-    else
-        appendTexture = incomingHealTexture
-    end
+    local appendTexture = healAbsorbTexture or incomingHealsTexture
 
     UnitFrameUtil_UpdateFillBar(frame, appendTexture, frame.totalAbsorbBar, totalAbsorb)
 end
@@ -511,44 +533,27 @@ local function defaultCompactUnitFrameSetup(frame)
     frame.overHealAbsorbGlow:SetPoint("BOTTOMRIGHT", frame.healthBar, "BOTTOMLEFT", 7, 0)
     frame.overHealAbsorbGlow:SetPoint("TOPRIGHT", frame.healthBar, "TOPLEFT", 7, 0)
     frame.overHealAbsorbGlow:SetWidth(16)
+
+    if not frame._CHP_myOverhealPrediction then
+        frame._CHP_myOverhealPrediction = frame:CreateTexture(frame:GetName() .. "_CHP_MyOverhealPrediction", "BORDER", nil, 5)
+    end
+
+    frame._CHP_myOverhealPrediction:ClearAllPoints()
+    frame._CHP_myOverhealPrediction:SetColorTexture(1, 1, 1)
+    frame._CHP_myOverhealPrediction:SetGradient("VERTICAL", 90 / 255, 23 / 255, 7 / 255, 136 / 255, 34 / 255, 11 / 255)
+
+    if not frame._CHP_otherOverhealPrediction then
+        frame._CHP_otherOverhealPrediction = frame:CreateTexture(frame:GetName() .. "_CHP_OtherOverhealPrediction", "BORDER", nil, 5)
+    end
+
+    frame._CHP_otherOverhealPrediction:ClearAllPoints()
+    frame._CHP_otherOverhealPrediction:SetColorTexture(1, 1, 1)
+    frame._CHP_otherOverhealPrediction:SetGradient("VERTICAL", 59 / 255, 22 / 255, 14 / 255, 89 / 255, 33 / 255, 21 / 255)
 end
 
 hooksecurefunc("DefaultCompactUnitFrameSetup", defaultCompactUnitFrameSetup)
 
-local function defaultCompactMiniFrameSetup(frame)
-    if not frame.myHealPrediction then
-        return
-    end
-
-    frame.myHealPrediction:ClearAllPoints()
-    frame.myHealPrediction:SetColorTexture(1, 1, 1)
-    frame.myHealPrediction:SetGradient("VERTICAL", 8 / 255, 93 / 255, 72 / 255, 11 / 255, 136 / 255, 105 / 255)
-    frame.myHealAbsorb:ClearAllPoints()
-    frame.myHealAbsorb:SetTexture("Interface\\RaidFrame\\Absorb-Fill", true, true)
-    frame.myHealAbsorbLeftShadow:ClearAllPoints()
-    frame.myHealAbsorbRightShadow:ClearAllPoints()
-    frame.otherHealPrediction:ClearAllPoints()
-    frame.otherHealPrediction:SetColorTexture(1, 1, 1)
-    frame.otherHealPrediction:SetGradient("VERTICAL", 3 / 255, 72 / 255, 5 / 255, 2 / 255, 101 / 255, 18 / 255)
-    frame.totalAbsorb:ClearAllPoints()
-    frame.totalAbsorb:SetTexture("Interface\\RaidFrame\\Shield-Fill")
-    frame.totalAbsorb.overlay = frame.totalAbsorbOverlay
-    frame.totalAbsorbOverlay:SetTexture("Interface\\RaidFrame\\Shield-Overlay", true, true)
-    frame.totalAbsorbOverlay:SetAllPoints(frame.totalAbsorb)
-    frame.totalAbsorbOverlay.tileSize = 32
-    frame.overAbsorbGlow:ClearAllPoints()
-    frame.overAbsorbGlow:SetTexture("Interface\\RaidFrame\\Shield-Overshield")
-    frame.overAbsorbGlow:SetBlendMode("ADD")
-    frame.overAbsorbGlow:SetPoint("BOTTOMLEFT", frame.healthBar, "BOTTOMRIGHT", -7, 0)
-    frame.overAbsorbGlow:SetPoint("TOPLEFT", frame.healthBar, "TOPRIGHT", -7, 0)
-    frame.overAbsorbGlow:SetWidth(16)
-    frame.overHealAbsorbGlow:ClearAllPoints()
-    frame.overHealAbsorbGlow:SetTexture("Interface\\RaidFrame\\Absorb-Overabsorb")
-    frame.overHealAbsorbGlow:SetBlendMode("ADD")
-    frame.overHealAbsorbGlow:SetPoint("BOTTOMRIGHT", frame.healthBar, "BOTTOMLEFT", 7, 0)
-    frame.overHealAbsorbGlow:SetPoint("TOPRIGHT", frame.healthBar, "TOPLEFT", 7, 0)
-    frame.overHealAbsorbGlow:SetWidth(16)
-end
+local defaultCompactMiniFrameSetup = defaultCompactUnitFrameSetup
 
 hooksecurefunc("DefaultCompactMiniFrameSetup", defaultCompactMiniFrameSetup)
 
@@ -616,7 +621,9 @@ hooksecurefunc(
         end
 
         frame.myHealPrediction = frame.healthBar.myHealPrediction
+        frame._CHP_myOverhealPrediction = frame.healthBar._CHP_myOverhealPrediction
         frame.otherHealPrediction = frame.healthBar.otherHealPrediction
+        frame._CHP_otherOverhealPrediction = frame.healthBar._CHP_otherOverhealPrediction
         frame.totalAbsorb = frame.healthBar.totalAbsorb
         frame.totalAbsorbOverlay = frame.healthBar.totalAbsorbOverlay
         frame.overAbsorbGlow = frame.healthBar.overAbsorbGlow
@@ -625,8 +632,10 @@ hooksecurefunc(
         frame.myHealAbsorbRightShadow = frame.healthBar.myHealAbsorbRightShadow
         frame.overHealAbsorbGlow = frame.healthBar.overHealAbsorbGlow
         frame.myHealPrediction:SetVertexColor(0.0, 0.659, 0.608)
+        frame._CHP_myOverhealPrediction:SetVertexColor(168 / 255, 39 / 255, 0)
         frame.myHealAbsorb:SetTexture("Interface\\RaidFrame\\Absorb-Fill", true, true)
         frame.otherHealPrediction:SetVertexColor(0.0, 0.659, 0.608)
+        frame._CHP_otherOverhealPrediction:SetVertexColor(168 / 255, 39 / 255, 0)
         frame.totalAbsorb:SetTexture("Interface\\RaidFrame\\Shield-Fill")
         frame.totalAbsorb.overlay = frame.totalAbsorbOverlay
         frame.totalAbsorbOverlay:SetTexture("Interface\\RaidFrame\\Shield-Overlay", true, true)
@@ -636,10 +645,12 @@ hooksecurefunc(
         frame.overHealAbsorbGlow:SetTexture("Interface\\RaidFrame\\Absorb-Overabsorb")
         frame.overHealAbsorbGlow:SetBlendMode("ADD")
         frame.myHealPrediction:ClearAllPoints()
+        frame._CHP_myOverhealPrediction:ClearAllPoints()
         frame.myHealAbsorb:ClearAllPoints()
         frame.myHealAbsorbLeftShadow:ClearAllPoints()
         frame.myHealAbsorbRightShadow:ClearAllPoints()
         frame.otherHealPrediction:ClearAllPoints()
+        frame._CHP_otherOverhealPrediction:ClearAllPoints()
         frame.totalAbsorb:ClearAllPoints()
         frame.totalAbsorbOverlay:SetAllPoints(frame.totalAbsorb)
     end
@@ -756,6 +767,8 @@ local function initUnitFrame(self, textures)
 
     self.myHealPredictionBar = _G[name .. "MyHealPredictionBar"]
     self.otherHealPredictionBar = _G[name .. "OtherHealPredictionBar"]
+    self._CHP_myOverhealPredictionBar = _G[name .. "_CHP_MyOverhealPredictionBar"]
+    self._CHP_otherOverhealPredictionBar = _G[name .. "_CHP_OtherOverhealPredictionBar"]
     self.totalAbsorbBar = _G[name .. "TotalAbsorbBar"]
     self.totalAbsorbBarOverlay = _G[name .. "TotalAbsorbBarOverlay"]
     self.overAbsorbGlow = _G[name .. "OverAbsorbGlow"]
@@ -771,6 +784,14 @@ local function initUnitFrame(self, textures)
 
     if self.otherHealPredictionBar then
         self.otherHealPredictionBar:ClearAllPoints()
+    end
+
+    if self._CHP_myOverhealPredictionBar then
+        self._CHP_myOverhealPredictionBar:ClearAllPoints()
+    end
+
+    if self._CHP_otherOverhealPredictionBar then
+        self._CHP_otherOverhealPredictionBar:ClearAllPoints()
     end
 
     if self.totalAbsorbBar then
@@ -932,6 +953,21 @@ local function ClassicHealPredictionFrame_Refresh()
         slider.textLow:SetTextColor(0.5, 0.5, 0.5)
         slider.textHigh:SetTextColor(0.5, 0.5, 0.5)
     end
+
+    sliderCheckBox2:SetChecked(ClassicHealPredictionSettings.overhealThreshold >= 0)
+
+    slider2:SetValue(toggleValue(ClassicHealPredictionSettings.overhealThreshold, true) * 100)
+    slider2:SetEnabled(ClassicHealPredictionSettings.overhealThreshold >= 0)
+
+    if ClassicHealPredictionSettings.overhealThreshold >= 0 then
+        slider2.text:SetTextColor(1.0, 1.0, 1.0)
+        slider2.textLow:SetTextColor(1.0, 1.0, 1.0)
+        slider2.textHigh:SetTextColor(1.0, 1.0, 1.0)
+    else
+        slider2.text:SetTextColor(0.5, 0.5, 0.5)
+        slider2.textLow:SetTextColor(0.5, 0.5, 0.5)
+        slider2.textHigh:SetTextColor(0.5, 0.5, 0.5)
+    end
 end
 
 local function ClassicHealPredictionFrame_OnEvent(self, event, arg1)
@@ -965,6 +1001,8 @@ local function ClassicHealPredictionFrame_OnEvent(self, event, arg1)
             {
                 {"myHealPrediction", "BORDER", 5, "Interface/TargetingFrame/UI-TargetingFrame-BarFill"},
                 {"otherHealPrediction", "BORDER", 5, "Interface/TargetingFrame/UI-TargetingFrame-BarFill"},
+                {"_CHP_myOverhealPrediction", "BORDER", 5, "Interface/TargetingFrame/UI-TargetingFrame-BarFill"},
+                {"_CHP_otherOverhealPrediction", "BORDER", 5, "Interface/TargetingFrame/UI-TargetingFrame-BarFill"},
                 {"totalAbsorb", "BORDER", 5},
                 {"totalAbsorbOverlay", "BORDER", 6},
                 {"myHealAbsorb", "ARTWORK", 1},
@@ -1044,6 +1082,8 @@ local function ClassicHealPredictionFrame_OnLoad(self)
             {{}, "TotalAbsorbBarOverlay", "ARTWORK", 1},
             {{1, 1}, "MyHealPredictionBar", "BACKGROUND"},
             {{1, 1}, "OtherHealPredictionBar", "BACKGROUND"},
+            {{1, 1}, "_CHP_MyOverhealPredictionBar", "BACKGROUND"},
+            {{1, 1}, "_CHP_OtherOverhealPredictionBar", "BACKGROUND"},
             {{1, 1}, "ManaCostPredictionBar", "BACKGROUND"},
             {{1, 1}, "HealAbsorbBar", "BACKGROUND"},
             {{1, 1}, "HealAbsorbBarLeftShadow", "BACKGROUND"},
@@ -1060,6 +1100,8 @@ local function ClassicHealPredictionFrame_OnLoad(self)
             {{}, "TotalAbsorbBarOverlay", "ARTWORK", 1},
             {{2, 1}, "MyHealPredictionBar", "BACKGROUND"},
             {{2, 1}, "OtherHealPredictionBar", "BACKGROUND"},
+            {{2, 1}, "_CHP_MyOverhealPredictionBar", "BACKGROUND"},
+            {{2, 1}, "_CHP_OtherOverhealPredictionBar", "BACKGROUND"},
             {{2, 1}, "HealAbsorbBar", "BACKGROUND"},
             {{2, 1}, "HealAbsorbBarLeftShadow", "BACKGROUND"},
             {{2, 1}, "HealAbsorbBarRightShadow", "BACKGROUND"},
@@ -1074,6 +1116,8 @@ local function ClassicHealPredictionFrame_OnLoad(self)
             {{}, "TotalAbsorbBar", "ARTWORK"},
             {{}, "MyHealPredictionBar", "ARTWORK", 1},
             {{}, "OtherHealPredictionBar", "ARTWORK", 1},
+            {{}, "_CHP_MyOverhealPredictionBar", "ARTWORK", 1},
+            {{}, "_CHP_OtherOverhealPredictionBar", "ARTWORK", 1},
             {{}, "HealAbsorbBar", "ARTWORK", 1},
             {{}, "HealAbsorbBarLeftShadow", "ARTWORK", 1},
             {{}, "HealAbsorbBarRightShadow", "ARTWORK", 1},
@@ -1091,6 +1135,8 @@ local function ClassicHealPredictionFrame_OnLoad(self)
                 {{}, "TotalAbsorbBarOverlay", "ARTWORK", 1},
                 {{2, 1}, "MyHealPredictionBar", "BACKGROUND"},
                 {{2, 1}, "OtherHealPredictionBar", "BACKGROUND"},
+                {{2, 1}, "_CHP_MyOverhealPredictionBar", "BACKGROUND"},
+                {{2, 1}, "_CHP_OtherOverhealPredictionBar", "BACKGROUND"},
                 {{2, 1}, "HealAbsorbBar", "BACKGROUND"},
                 {{2, 1}, "HealAbsorbBarLeftShadow", "BACKGROUND"},
                 {{2, 1}, "HealAbsorbBarRightShadow", "BACKGROUND"},
@@ -1144,7 +1190,7 @@ local function ClassicHealPredictionFrame_OnLoad(self)
 
     for i, x in ipairs(
         {
-            {"Enable prediction", nil, HealComm.ALL_HEALS},
+            {"Show healing of others", nil, HealComm.ALL_HEALS},
             {"Show direct healing", nil, HealComm.DIRECT_HEALS},
             {"Show healing over time", nil, HealComm.HOT_HEALS},
             {"Show channeled healing", nil, HealComm.CHANNEL_HEALS}
@@ -1273,6 +1319,56 @@ local function ClassicHealPredictionFrame_OnLoad(self)
 
             slider:SetEnabled(self:GetChecked())
             ClassicHealPredictionSettings.otherDelta = toggleValue(ClassicHealPredictionSettings.otherDelta, self:GetChecked())
+        end
+    )
+
+    local sliderCheckBoxName2 = "ClassicHealPredictionSliderCheckbox2"
+    sliderCheckBox2 = CreateFrame("CheckButton", sliderCheckBoxName2, self, "OptionsCheckButtonTemplate")
+
+    local sliderName2 = "ClassicHealPredictionSlider2"
+    slider2 = CreateFrame("Slider", sliderName2, self, "OptionsSliderTemplate")
+
+    sliderCheckBox2:SetPoint("TOPLEFT", checkBoxes[1], "BOTTOMLEFT", 0, -160)
+    sliderCheckBox2.text = _G[sliderCheckBoxName2 .. "Text"]
+    sliderCheckBox2.text:SetText("Show healing in red if overhealing exceeds ... percent of max health")
+    sliderCheckBox2.text:SetTextColor(1, 1, 1)
+
+    slider2:SetPoint("TOPLEFT", sliderCheckBox2, "BOTTOMRIGHT", 0, -15)
+    slider2.text = _G[sliderName2 .. "Text"]
+    slider2.textLow = _G[sliderName2 .. "Low"]
+    slider2.textHigh = _G[sliderName2 .. "High"]
+    slider2:SetWidth(300)
+    slider2:SetMinMaxValues(0, 100)
+    slider2:SetValueStep(1)
+    slider2:SetObeyStepOnDrag(true)
+    slider2.minValue, slider2.maxValue = slider2:GetMinMaxValues()
+    slider2.text:SetText(format("%d", slider2:GetValue()))
+    slider2.textLow:SetText(slider2.minValue)
+    slider2.textHigh:SetText(slider2.maxValue)
+
+    slider2:SetScript(
+        "OnValueChanged",
+        function(self, event)
+            self.text:SetText(format("%d", event))
+            ClassicHealPredictionSettings.overhealThreshold = toggleValue(event / 100, ClassicHealPredictionSettings.overhealThreshold >= 0)
+        end
+    )
+
+    sliderCheckBox2:SetScript(
+        "OnClick",
+        function(self)
+            if self:GetChecked() then
+                slider2.text:SetTextColor(1.0, 1.0, 1.0)
+                slider2.textLow:SetTextColor(1.0, 1.0, 1.0)
+                slider2.textHigh:SetTextColor(1.0, 1.0, 1.0)
+            else
+                slider2.text:SetTextColor(0.5, 0.5, 0.5)
+                slider2.textLow:SetTextColor(0.5, 0.5, 0.5)
+                slider2.textHigh:SetTextColor(0.5, 0.5, 0.5)
+            end
+
+            slider2:SetEnabled(self:GetChecked())
+            ClassicHealPredictionSettings.overhealThreshold = toggleValue(ClassicHealPredictionSettings.overhealThreshold, self:GetChecked())
         end
     )
 
