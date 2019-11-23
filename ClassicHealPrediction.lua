@@ -21,15 +21,13 @@ local select = select
 local wipe = wipe
 local tinsert = tinsert
 local unpack = unpack
+local next = next
 
 local GetTime = GetTime
 local SetCVar = SetCVar
-local GetCVarBool = GetCVarBool
 local C_Timer = C_Timer
 local C_NamePlate = C_NamePlate
 
-local IsInGroup = IsInGroup
-local IsInRaid = IsInRaid
 local UnitGUID = UnitGUID
 local UnitExists = UnitExists
 local UnitHealth = UnitHealth
@@ -37,7 +35,6 @@ local UnitHealthMax = UnitHealthMax
 local UnitIsFriend = UnitIsFriend
 local CastingInfo = CastingInfo
 local GetSpellPowerCost = GetSpellPowerCost
-local GetRaidRosterInfo = GetRaidRosterInfo
 local GetSpellInfo = GetSpellInfo
 
 local function UnitCastingInfo(unit)
@@ -47,7 +44,6 @@ end
 
 _G.UnitCastingInfo = UnitCastingInfo
 
-local CompactRaidFrameContainer = CompactRaidFrameContainer
 local CompactUnitFrameUtil_UpdateFillBar = CompactUnitFrameUtil_UpdateFillBar
 local UnitFrameUtil_UpdateFillBar = UnitFrameUtil_UpdateFillBar
 local UnitFrameUtil_UpdateManaFillBar = UnitFrameUtil_UpdateManaFillBar
@@ -141,6 +137,7 @@ local function getOtherEndTime()
 end
 
 local guidToUnitFrame = {}
+local guidToCompactUnitFrame = {}
 local guidToNameplateFrame = {}
 
 local loadedSettings = false
@@ -451,6 +448,28 @@ hooksecurefunc(
     function(frame)
         local unit = frame.displayedUnit
 
+        do
+            local unitGUID = frame._CHP_unitGUID
+            local newUnitGUID = unit and UnitGUID(unit)
+
+            if newUnitGUID ~= unitGUID then
+                if unitGUID then
+                    guidToCompactUnitFrame[unitGUID][frame] = nil
+
+                    if next(guidToCompactUnitFrame[unitGUID]) == nil then
+                        guidToCompactUnitFrame[unitGUID] = nil
+                    end
+                end
+
+                if newUnitGUID then
+                    guidToCompactUnitFrame[newUnitGUID] = guidToCompactUnitFrame[newUnitGUID] or {}
+                    guidToCompactUnitFrame[newUnitGUID][frame] = true
+                end
+
+                frame._CHP_unitGUID = newUnitGUID
+            end
+        end
+
         if UnitExists(unit) then
             CompactUnitFrame_UpdateHealPrediction(frame)
         end
@@ -626,21 +645,37 @@ hooksecurefunc(
     end
 )
 
-hooksecurefunc(
-    "UnitFrame_SetUnit",
-    function(self)
-        UnitFrameHealPredictionBars_Update(self)
-        UnitFrameManaCostPredictionBars_Update(self)
-    end
-)
+local function unitFrame_Update(self)
+    do
+        local unit = self.unit
+        local unitGUID = self._CHP_unitGUID
+        local newUnitGUID = unit and UnitGUID(unit)
 
-hooksecurefunc(
-    "UnitFrame_Update",
-    function(self)
-        UnitFrameHealPredictionBars_Update(self)
-        UnitFrameManaCostPredictionBars_Update(self)
+        if newUnitGUID ~= unitGUID then
+            if unitGUID then
+                guidToUnitFrame[unitGUID][self] = nil
+
+                if next(guidToUnitFrame[unitGUID]) == nil then
+                    guidToUnitFrame[unitGUID] = nil
+                end
+            end
+
+            if newUnitGUID then
+                guidToUnitFrame[newUnitGUID] = guidToUnitFrame[newUnitGUID] or {}
+                guidToUnitFrame[newUnitGUID][self] = true
+            end
+
+            self._CHP_unitGUID = newUnitGUID
+        end
     end
-)
+
+    UnitFrameHealPredictionBars_Update(self)
+    UnitFrameManaCostPredictionBars_Update(self)
+end
+
+hooksecurefunc("UnitFrame_SetUnit", unitFrame_Update)
+
+hooksecurefunc("UnitFrame_Update", unitFrame_Update)
 
 hooksecurefunc(
     "UnitFrame_OnEvent",
@@ -657,11 +692,11 @@ hooksecurefunc(
     "UnitFrameHealthBar_OnUpdate",
     function(self)
         if not self.disconnected and not self.lockValues then
-            local currValue2 = UnitHealth(self.unit)
+            local currValue = UnitHealth(self.unit)
 
-            if currValue2 ~= self.currValue2 then
+            if currValue ~= self._CHP_currValue then
                 if not self.ignoreNoUnit or UnitGUID(self.unit) then
-                    self.currValue2 = currValue2
+                    self._CHP_currValue = currValue
                     UnitFrameHealPredictionBars_Update(self:GetParent())
                 end
             end
@@ -684,10 +719,10 @@ hooksecurefunc(
             local maxValue = UnitHealthMax(unit)
 
             if statusbar.disconnected then
-                statusbar.currValue2 = maxValue
+                statusbar._CHP_currValue = maxValue
             else
-                local currValue2 = UnitHealth(unit)
-                statusbar.currValue2 = currValue2
+                local currValue = UnitHealth(unit)
+                statusbar._CHP_currValue = currValue
             end
         end
 
@@ -826,29 +861,22 @@ local function UpdateHealPrediction(...)
     for j = 1, select("#", ...) do
         local unitGUID = select(j, ...)
 
-        if unitGUID == UnitGUID("player") then
-            UnitFrameHealPredictionBars_Update(PlayerFrame)
-        elseif unitGUID == UnitGUID("pet") then
-            UnitFrameHealPredictionBars_Update(PetFrame)
-        end
+        do
+            local unitFrames = guidToUnitFrame[unitGUID]
 
-        if unitGUID == UnitGUID("target") then
-            UnitFrameHealPredictionBars_Update(TargetFrame)
-        end
-
-        local unitFrames = guidToUnitFrame[unitGUID]
-        local updateFunc
-
-        if unitFrames then
-            if IsInRaid() or GetCVarBool("useCompactPartyFrames") then
-                updateFunc = CompactUnitFrame_UpdateHealPrediction
-            elseif IsInGroup() then
-                updateFunc = UnitFrameHealPredictionBars_Update
-            end
-
-            if updateFunc then
+            if unitFrames then
                 for unitFrame in pairs(unitFrames) do
-                    updateFunc(unitFrame)
+                    UnitFrameHealPredictionBars_Update(unitFrame)
+                end
+            end
+        end
+
+        do
+            local compactUnitFrames = guidToCompactUnitFrame[unitGUID]
+
+            if compactUnitFrames then
+                for compactUnitFrame in pairs(compactUnitFrames) do
+                    CompactUnitFrame_UpdateHealPrediction(compactUnitFrame)
                 end
             end
         end
@@ -862,146 +890,6 @@ local function UpdateHealPrediction(...)
         end
     end
 end
-
-local function updateUnitFrames(updateHealPrediction)
-    wipe(guidToUnitFrame)
-
-    if IsInRaid() then
-        local frameReservations = CompactRaidFrameContainer.frameReservations
-        local raidReservations = frameReservations["raid"].reservations
-        local petReservations = frameReservations["pet"].reservations
-        local flaggedReservations = frameReservations["flagged"].reservations
-
-        for i = 1, MAX_RAID_MEMBERS do
-            do
-                local unit = RAID[i]
-
-                if UnitExists(unit) then
-                    local unitGUID = UnitGUID(unit)
-                    local unitFrame = raidReservations[unitGUID]
-
-                    if unitFrame then
-                        guidToUnitFrame[unitGUID] = guidToUnitFrame[unitGUID] or {}
-                        guidToUnitFrame[unitGUID][unitFrame] = true
-                    end
-                end
-            end
-
-            do
-                local unit = RAIDPET[i]
-
-                if UnitExists(unit) then
-                    local unitGUID = UnitGUID(unit)
-                    local unitFrame = petReservations[unit]
-
-                    if unitFrame then
-                        guidToUnitFrame[unitGUID] = guidToUnitFrame[unitGUID] or {}
-                        guidToUnitFrame[unitGUID][unitFrame] = true
-                    end
-                end
-            end
-        end
-
-        for i = 1, MAX_RAID_MEMBERS do
-            local unitName, _, _, _, _, _, _, _, _, role = GetRaidRosterInfo(i)
-
-            if unitName and (role == "MAINTANK" or role == "MAINASSIST") then
-                do
-                    local unitGUID = UnitGUID(unitName)
-                    local unitFrame = flaggedReservations[unitGUID]
-
-                    if unitFrame then
-                        guidToUnitFrame[unitGUID] = guidToUnitFrame[unitGUID] or {}
-                        guidToUnitFrame[unitGUID][unitFrame] = true
-                    end
-                end
-            end
-        end
-    elseif IsInGroup() then
-        if GetCVarBool("useCompactPartyFrames") then
-            local frameReservations = CompactRaidFrameContainer.frameReservations
-            local raidReservations = frameReservations["raid"].reservations
-            local petReservations = frameReservations["pet"].reservations
-
-            for i = 0, MAX_PARTY_MEMBERS do
-                do
-                    local unit = PARTY[i]
-
-                    if UnitExists(unit) then
-                        local unitGUID = UnitGUID(unit)
-                        local unitFrame = raidReservations[unitGUID]
-
-                        if unitFrame then
-                            guidToUnitFrame[unitGUID] = guidToUnitFrame[unitGUID] or {}
-                            guidToUnitFrame[unitGUID][unitFrame] = true
-                        end
-                    end
-                end
-
-                do
-                    local unit = PARTYPET[i]
-
-                    if UnitExists(unit) then
-                        local unitGUID = UnitGUID(unit)
-                        local unitFrame = petReservations[unit]
-
-                        if unitFrame then
-                            guidToUnitFrame[unitGUID] = guidToUnitFrame[unitGUID] or {}
-                            guidToUnitFrame[unitGUID][unitFrame] = true
-                        end
-                    end
-                end
-            end
-        else
-            for i = 1, MAX_PARTY_MEMBERS do
-                do
-                    local unit = PARTY[i]
-
-                    if UnitExists(unit) then
-                        local unitGUID = UnitGUID(unit)
-                        local unitFrame = PartyMemberFrame[i]
-
-                        if unitFrame then
-                            guidToUnitFrame[unitGUID] = guidToUnitFrame[unitGUID] or {}
-                            guidToUnitFrame[unitGUID][unitFrame] = true
-                        end
-                    end
-                end
-
-                do
-                    local unit = PARTYPET[i]
-
-                    if UnitExists(unit) then
-                        local unitGUID = UnitGUID(unit)
-                        local unitFrame = PartyMemberFramePetFrame[i]
-
-                        if unitFrame then
-                            guidToUnitFrame[unitGUID] = guidToUnitFrame[unitGUID] or {}
-                            guidToUnitFrame[unitGUID][unitFrame] = true
-                        end
-                    end
-                end
-            end
-        end
-    end
-
-    if updateHealPrediction then
-        local unitGUIDs = {}
-
-        for unitGUID in pairs(guidToUnitFrame) do
-            tinsert(unitGUIDs, unitGUID)
-        end
-
-        UpdateHealPrediction(unpack(unitGUIDs))
-    end
-end
-
-hooksecurefunc(
-    "CompactRaidFrameManager_SetSetting",
-    function()
-        updateUnitFrames(true)
-    end
-)
 
 local function ClassicHealPredictionFrame_Refresh()
     if not loadedSettings or not loadedFrame then
@@ -1069,10 +957,6 @@ local function ClassicHealPredictionFrame_OnEvent(self, event, arg1)
         SetCVar("predictedHealth", 1)
 
         loadedSettings = true
-    elseif event == "GROUP_ROSTER_UPDATE" or event == "UNIT_PET" then
-        updateUnitFrames()
-    elseif event == "PLAYER_ENTERING_WORLD" or event == "UPDATE_ACTIVE_BATTLEFIELD" or event == "CVAR_UPDATE" and arg1 == "USE_RAID_STYLE_PARTY_FRAMES" then
-        updateUnitFrames(true)
     elseif event == "NAME_PLATE_CREATED" then
         local namePlate = arg1
 
@@ -1220,14 +1104,9 @@ local function ClassicHealPredictionFrame_OnLoad(self)
 
     local frame = CreateFrame("Frame")
 
-    frame:RegisterEvent("UNIT_PET")
-    frame:RegisterEvent("GROUP_ROSTER_UPDATE")
-    frame:RegisterEvent("PLAYER_ENTERING_WORLD")
-    frame:RegisterEvent("UPDATE_ACTIVE_BATTLEFIELD")
     frame:RegisterEvent("NAME_PLATE_CREATED")
     frame:RegisterEvent("NAME_PLATE_UNIT_ADDED")
     frame:RegisterEvent("NAME_PLATE_UNIT_REMOVED")
-    frame:RegisterEvent("CVAR_UPDATE")
 
     frame:SetScript(
         "OnEvent",
