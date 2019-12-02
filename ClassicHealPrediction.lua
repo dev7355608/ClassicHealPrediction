@@ -100,6 +100,123 @@ local function toggleValue(value, bool)
     return value
 end
 
+local function rgbToHsl(r, g, b, a)
+    local max, min = max(r, g, b), min(r, g, b)
+    local h, s, l
+
+    l = (max + min) / 2
+
+    if max == min then
+        h, s = 0, 0
+    else
+        local d = max - min
+
+        if l > 0.5 then
+            s = d / (2 - max - min)
+        else
+            s = d / (max + min)
+        end
+
+        if max == r then
+            h = (g - b) / d
+
+            if g < b then
+                h = h + 6
+            end
+        elseif max == g then
+            h = (b - r) / d + 2
+        elseif max == b then
+            h = (r - g) / d + 4
+        end
+
+        h = h / 6
+    end
+
+    return h, s, l, a or 1
+end
+
+local function hslToRgb(h, s, l, a)
+    local r, g, b
+
+    if s == 0 then
+        r, g, b = l, l, l
+    else
+        local function f(p, q, t)
+            if t < 0 then
+                t = t + 1
+            elseif t > 1 then
+                t = t - 1
+            end
+
+            if t < 1 / 6 then
+                return p + (q - p) * 6 * t
+            end
+
+            if t < 1 / 2 then
+                return q
+            end
+
+            if t < 2 / 3 then
+                return p + (q - p) * (2 / 3 - t) * 6
+            end
+
+            return p
+        end
+
+        local q
+        if l < 0.5 then
+            q = l * (1 + s)
+        else
+            q = l + s - l * s
+        end
+        local p = 2 * l - q
+
+        r = f(p, q, h + 1 / 3)
+        g = f(p, q, h)
+        b = f(p, q, h - 1 / 3)
+    end
+
+    return r, g, b, a or 1
+end
+
+local function dimColor(x, r, g, b, a)
+    local h, s, l = rgbToHsl(r, g, b, a)
+    return hslToRgb(h, s, x * l, a)
+end
+
+local function gradient(r, g, b, a)
+    return r, g, b, a, dimColor(0.667, r, g, b, a)
+end
+
+local function complementaryColor(r, g, b, a)
+    local h, s, l = rgbToHsl(r, g, b, a)
+
+    if h < 0.333 then
+        h = h * 1.5
+    else
+        h = (h - 0.333) * 0.5 + 0.5
+    end
+
+    h = (h + 0.5) % 1
+
+    if h < 0.5 then
+        h = h * 0.667
+    else
+        h = (h - 0.5) * 1.333 + 0.333
+    end
+
+    return hslToRgb(h % 1, s, l, a)
+end
+
+local function tappend(tbl, ...)
+    for i = 1, select("#", ...) do
+        local x = select(i, ...)
+        tinsert(tbl, x)
+    end
+
+    return tbl
+end
+
 local ClassicHealPrediction = {}
 _G.ClassicHealPrediction = ClassicHealPrediction
 
@@ -108,7 +225,28 @@ local ClassicHealPredictionDefaultSettings = {
     otherFilter = toggleValue(HealComm.ALL_HEALS, true),
     myDelta = toggleValue(3, false),
     otherDelta = toggleValue(3, false),
-    overhealThreshold = toggleValue(0.2, false)
+    overhealThreshold = toggleValue(0.2, false),
+    colors = {
+        {gradient(0.043, 0.533, 0.412, 1.0)},
+        {gradient(0.043, 0.533, 0.412, 0.5)},
+        {gradient(complementaryColor(0.043, 0.533, 0.412, 1.0))},
+        {gradient(complementaryColor(0.043, 0.533, 0.412, 0.5))},
+        {gradient(0.082, 0.349, 0.282, 1.0)},
+        {gradient(0.082, 0.349, 0.282, 0.5)},
+        {gradient(complementaryColor(0.082, 0.349, 0.282, 1.0))},
+        {gradient(complementaryColor(0.082, 0.349, 0.282, 0.5))},
+        {gradient(0.0, 0.827, 0.765, 1.0)},
+        {gradient(0.0, 0.827, 0.765, 0.5)},
+        {gradient(complementaryColor(0.0, 0.827, 0.765, 1.0))},
+        {gradient(complementaryColor(0.0, 0.827, 0.765, 0.5))},
+        {gradient(0.0, 0.631, 0.557, 1.0)},
+        {gradient(0.0, 0.631, 0.557, 0.5)},
+        {gradient(complementaryColor(0.0, 0.631, 0.557, 1.0))},
+        {gradient(complementaryColor(0.0, 0.631, 0.557, 0.5))},
+        {gradient(0.0, 0.447, 1.0, 1.0)}
+    },
+    showManaCostPrediction = true,
+    raidFramesMaxOverflow = toggleValue(0.05, true)
 }
 local ClassicHealPredictionSettings = ClassicHealPredictionDefaultSettings
 
@@ -143,6 +281,38 @@ local function createTexture(frame, name, layer, subLayer)
     return getTexture(frame, name) or frame:CreateTexture(name and "_CHP_" .. name, layer, nil, subLayer)
 end
 
+local function deepcopy(orig)
+    local orig_type = type(orig)
+    local copy
+
+    if orig_type == "table" then
+        copy = {}
+
+        for orig_key, orig_value in next, orig, nil do
+            copy[deepcopy(orig_key)] = deepcopy(orig_value)
+        end
+
+        setmetatable(copy, deepcopy(getmetatable(orig)))
+    else
+        copy = orig
+    end
+
+    return copy
+end
+
+local function deepmerge(tbl1, tbl2)
+    for k, v in pairs(tbl2) do
+        if tbl1[k] == nil then
+            if type(v) == "table" then
+                tbl1[k] = {}
+                deepmerge(tbl1[k], v)
+            else
+                tbl1[k] = v
+            end
+        end
+    end
+end
+
 local tickIntervals
 
 local guidToUnitFrame = {}
@@ -152,10 +322,14 @@ local guidToNameplateFrame = {}
 local loadedSettings = false
 local loadedFrame = false
 local checkBoxes
+local checkBox2
 local slider
 local slider2
+local slider3
 local sliderCheckBox
 local sliderCheckBox2
+local sliderCheckBox3
+local colorSwatches = {}
 
 local function getIncomingHeals(unit)
     if not unit or not UnitCanAssist("player", unit) then
@@ -290,7 +464,10 @@ local function updateHealPrediction(frame, unit, cutoff, gradient, colorPalette,
 
     local overhealing = maxHealth <= 0 and 0 or max((health - myCurrentHealAbsorb + incomingHeal1) / maxHealth - 1, 0)
 
-    allIncomingHeal = min(allIncomingHeal, maxHealth * cutoff - health + myCurrentHealAbsorb)
+    if cutoff then
+        allIncomingHeal = min(allIncomingHeal, maxHealth * cutoff - health + myCurrentHealAbsorb)
+    end
+
     incomingHeal1 = min(incomingHeal1, allIncomingHeal)
     incomingHeal2 = allIncomingHeal - incomingHeal1
     myIncomingHeal1 = min(myIncomingHeal1, incomingHeal1)
@@ -366,25 +543,27 @@ local function updateHealPrediction(frame, unit, cutoff, gradient, colorPalette,
         end
     end
 
+    local colors = ClassicHealPredictionSettings.colors
+
     if gradient then
         local r1, g1, b1, a1, r2, g2, b2, a2
-        r1, g1, b1, a1, r2, g2, b2, a2 = unpack(colorPalette[1])
+        r1, g1, b1, a1, r2, g2, b2, a2 = unpack(colors[colorPalette[1]])
         myHealPrediction1:SetGradientAlpha("VERTICAL", r2, g2, b2, a2, r1, g1, b1, a1)
-        r1, g1, b1, a1, r2, g2, b2, a2 = unpack(colorPalette[2])
+        r1, g1, b1, a1, r2, g2, b2, a2 = unpack(colors[colorPalette[2]])
         myHealPrediction2:SetGradientAlpha("VERTICAL", r2, g2, b2, a2, r1, g1, b1, a1)
-        r1, g1, b1, a1, r2, g2, b2, a2 = unpack(colorPalette[3])
+        r1, g1, b1, a1, r2, g2, b2, a2 = unpack(colors[colorPalette[3]])
         otherHealPrediction1:SetGradientAlpha("VERTICAL", r2, g2, b2, a2, r1, g1, b1, a1)
-        r1, g1, b1, a1, r2, g2, b2, a2 = unpack(colorPalette[4])
+        r1, g1, b1, a1, r2, g2, b2, a2 = unpack(colors[colorPalette[4]])
         otherHealPrediction2:SetGradientAlpha("VERTICAL", r2, g2, b2, a2, r1, g1, b1, a1)
     else
         local r1, g1, b1, a1
-        r1, g1, b1, a1 = unpack(colorPalette[1])
+        r1, g1, b1, a1 = unpack(colors[colorPalette[1]])
         myHealPrediction1:SetVertexColor(r1, g1, b1, a1)
-        r1, g1, b1, a1 = unpack(colorPalette[2])
+        r1, g1, b1, a1 = unpack(colors[colorPalette[2]])
         myHealPrediction2:SetVertexColor(r1, g1, b1, a1)
-        r1, g1, b1, a1 = unpack(colorPalette[3])
+        r1, g1, b1, a1 = unpack(colors[colorPalette[3]])
         otherHealPrediction1:SetVertexColor(r1, g1, b1, a1)
-        r1, g1, b1, a1 = unpack(colorPalette[4])
+        r1, g1, b1, a1 = unpack(colors[colorPalette[4]])
         otherHealPrediction2:SetVertexColor(r1, g1, b1, a1)
     end
 
@@ -401,137 +580,19 @@ local CompactUnitFrame_UpdateHealPrediction
 local UnitFrameHealPredictionBars_Update
 
 do
-    local function rgbToHsl(r, g, b, a)
-        local max, min = max(r, g, b), min(r, g, b)
-        local h, s, l
-
-        l = (max + min) / 2
-
-        if max == min then
-            h, s = 0, 0
-        else
-            local d = max - min
-
-            if l > 0.5 then
-                s = d / (2 - max - min)
-            else
-                s = d / (max + min)
-            end
-
-            if max == r then
-                h = (g - b) / d
-
-                if g < b then
-                    h = h + 6
-                end
-            elseif max == g then
-                h = (b - r) / d + 2
-            elseif max == b then
-                h = (r - g) / d + 4
-            end
-
-            h = h / 6
-        end
-
-        return h, s, l, a or 1
-    end
-
-    local function hslToRgb(h, s, l, a)
-        local r, g, b
-
-        if s == 0 then
-            r, g, b = l, l, l
-        else
-            local function f(p, q, t)
-                if t < 0 then
-                    t = t + 1
-                elseif t > 1 then
-                    t = t - 1
-                end
-
-                if t < 1 / 6 then
-                    return p + (q - p) * 6 * t
-                end
-
-                if t < 1 / 2 then
-                    return q
-                end
-
-                if t < 2 / 3 then
-                    return p + (q - p) * (2 / 3 - t) * 6
-                end
-
-                return p
-            end
-
-            local q
-            if l < 0.5 then
-                q = l * (1 + s)
-            else
-                q = l + s - l * s
-            end
-            local p = 2 * l - q
-
-            r = f(p, q, h + 1 / 3)
-            g = f(p, q, h)
-            b = f(p, q, h - 1 / 3)
-        end
-
-        return r, g, b, a or 1
-    end
-
-    local function complementaryColor(r, g, b)
-        local h, s, l = rgbToHsl(r, g, b)
-        if h < 0.333 then
-            h = h * 1.5
-        else
-            h = (h - 0.333) * 0.5 + 0.5
-        end
-        h = (h + 0.5) % 1
-        if h < 0.5 then
-            h = h * 0.667
-        else
-            h = (h - 0.5) * 1.333 + 0.333
-        end
-        return hslToRgb(h % 1, s, l)
-    end
-
-    local function tappend(tbl, ...)
-        for i = 1, select("#", ...) do
-            local x = select(i, ...)
-            tinsert(tbl, x)
-        end
-        return tbl
-    end
-
-    local compactUnitFrameColorPalette = {
-        tappend({hslToRgb(0.35, 0.9, 0.5)}, hslToRgb(0.35, 0.9, 0.333)),
-        tappend({hslToRgb(0.35, 0.4, 0.5)}, hslToRgb(0.35, 0.4, 0.333)),
-        tappend({hslToRgb(0.47, 0.9, 0.4)}, hslToRgb(0.47, 0.9, 0.267)),
-        tappend({hslToRgb(0.47, 0.4, 0.4)}, hslToRgb(0.47, 0.4, 0.267))
-    }
-    local compactUnitFrameColorPalette2 = {}
-
-    for i, c in pairs(compactUnitFrameColorPalette) do
-        local r1, g1, b1, a1, r2, g2, b2, a2 = unpack(c)
-        compactUnitFrameColorPalette2[i] = tappend({complementaryColor(r1, g1, b1, a1)}, complementaryColor(r2, g2, b2, a2))
-    end
-
-    local unitFrameColorPalette = {
-        {hslToRgb(0.35, 1.0, 0.5, 0.75)},
-        {hslToRgb(0.35, 0.5, 0.5, 0.75)},
-        {hslToRgb(0.50, 1.0, 0.5, 0.75)},
-        {hslToRgb(0.50, 0.5, 0.5, 0.75)}
-    }
-    local unitFrameColorPalette2 = {}
-
-    for i, c in pairs(unitFrameColorPalette) do
-        local r1, g1, b1, a1 = unpack(c)
-        unitFrameColorPalette2[i] = {complementaryColor(r1, g1, b1, a1)}
-    end
+    local compactUnitFrameColorPalette = {1, 2, 5, 6}
+    local compactUnitFrameColorPalette2 = {3, 4, 7, 8}
+    local unitFrameColorPalette = {9, 10, 13, 14}
+    local unitFrameColorPalette2 = {11, 12, 15, 16}
 
     function CompactUnitFrame_UpdateHealPrediction(frame)
-        updateHealPrediction(frame, frame.displayedUnit, 1.05, frame._CHP_setGradient, compactUnitFrameColorPalette, compactUnitFrameColorPalette2, CompactUnitFrameUtil_UpdateFillBar)
+        local cutoff
+
+        if ClassicHealPredictionSettings.raidFramesMaxOverflow >= 0 then
+            cutoff = 1.0 + ClassicHealPredictionSettings.raidFramesMaxOverflow
+        end
+
+        updateHealPrediction(frame, frame.displayedUnit, cutoff, frame._CHP_setGradient, compactUnitFrameColorPalette, compactUnitFrameColorPalette2, CompactUnitFrameUtil_UpdateFillBar)
     end
 
     function UnitFrameHealPredictionBars_Update(frame)
@@ -541,6 +602,10 @@ end
 
 local function UnitFrameManaCostPredictionBars_Update(frame, isStarting, startTime, endTime, spellID)
     if frame.unit ~= "player" or not frame.manabar or not frame.myManaCostPredictionBar then
+        return
+    end
+
+    if not ClassicHealPredictionSettings.showManaCostPrediction then
         return
     end
 
@@ -568,6 +633,9 @@ local function UnitFrameManaCostPredictionBars_Update(frame, isStarting, startTi
     end
 
     local manaBarTexture = frame.manabar:GetStatusBarTexture()
+
+    local r, g, b, a = unpack(ClassicHealPredictionSettings.colors[17])
+    frame.myManaCostPredictionBar:SetVertexColor(r, g, b, a)
 
     UnitFrameManaBar_Update(frame.manabar, "player")
     UnitFrameUtil_UpdateManaFillBar(frame, manaBarTexture, frame.myManaCostPredictionBar, cost)
@@ -982,7 +1050,6 @@ do
 
             frame.myManaCostPredictionBar:ClearAllPoints()
             frame.myManaCostPredictionBar:SetTexture("Interface\\TargetingFrame\\UI-StatusBar")
-            frame.myManaCostPredictionBar:SetVertexColor(0.0, 0.447, 1.0)
 
             frame:RegisterUnitEvent("UNIT_SPELLCAST_START", frame.unit)
             frame:RegisterUnitEvent("UNIT_SPELLCAST_STOP", frame.unit)
@@ -1194,6 +1261,28 @@ local function ClassicHealPredictionFrame_Refresh()
         slider2.Low:SetTextColor(0.5, 0.5, 0.5)
         slider2.High:SetTextColor(0.5, 0.5, 0.5)
     end
+
+    sliderCheckBox3:SetChecked(ClassicHealPredictionSettings.raidFramesMaxOverflow >= 0)
+
+    slider3:SetValue(toggleValue(ClassicHealPredictionSettings.raidFramesMaxOverflow, true) * 100)
+    slider3:SetEnabled(ClassicHealPredictionSettings.raidFramesMaxOverflow >= 0)
+
+    if ClassicHealPredictionSettings.raidFramesMaxOverflow >= 0 then
+        slider3.Text:SetTextColor(1.0, 1.0, 1.0)
+        slider3.Low:SetTextColor(1.0, 1.0, 1.0)
+        slider3.High:SetTextColor(1.0, 1.0, 1.0)
+    else
+        slider3.Text:SetTextColor(0.5, 0.5, 0.5)
+        slider3.Low:SetTextColor(0.5, 0.5, 0.5)
+        slider3.High:SetTextColor(0.5, 0.5, 0.5)
+    end
+
+    checkBox2:SetChecked(ClassicHealPredictionSettings.showManaCostPrediction)
+
+    for _, colorSwatch in ipairs(colorSwatches) do
+        local r, g, b, a = unpack(ClassicHealPredictionSettings.colors[colorSwatch.index])
+        colorSwatch:GetNormalTexture():SetVertexColor(r, g, b, a)
+    end
 end
 
 local function ClassicHealPredictionFrame_OnEvent(self, event, arg1)
@@ -1202,18 +1291,14 @@ local function ClassicHealPredictionFrame_OnEvent(self, event, arg1)
             _G.ClassicHealPredictionSettings = {}
         end
 
-        for k, v in pairs(ClassicHealPredictionDefaultSettings) do
-            if not _G.ClassicHealPredictionSettings[k] then
-                _G.ClassicHealPredictionSettings[k] = v
-            end
-        end
+        deepmerge(_G.ClassicHealPredictionSettings, ClassicHealPredictionDefaultSettings)
 
         _G.ClassicHealPredictionSettings["version"] = ADDON_VERSION
 
         ClassicHealPredictionSettings = {}
 
         for k, v in pairs(_G.ClassicHealPredictionSettings) do
-            ClassicHealPredictionSettings[k] = v
+            ClassicHealPredictionSettings[k] = deepcopy(v)
         end
 
         SetCVar("predictedHealth", 1)
@@ -1249,8 +1334,8 @@ local function ClassicHealPredictionFrame_Default()
     wipe(_G.ClassicHealPredictionSettings)
 
     for k, v in pairs(ClassicHealPredictionDefaultSettings) do
-        ClassicHealPredictionSettings[k] = v
-        _G.ClassicHealPredictionSettings[k] = v
+        ClassicHealPredictionSettings[k] = deepcopy(v)
+        _G.ClassicHealPredictionSettings[k] = deepcopy(v)
     end
 
     ClassicHealPredictionSettings["version"] = ADDON_VERSION
@@ -1263,7 +1348,7 @@ local function ClassicHealPredictionFrame_Okay()
     wipe(_G.ClassicHealPredictionSettings)
 
     for k, v in pairs(ClassicHealPredictionSettings) do
-        _G.ClassicHealPredictionSettings[k] = v
+        _G.ClassicHealPredictionSettings[k] = deepcopy(v)
     end
 
     UpdateHealPredictionAll()
@@ -1275,7 +1360,7 @@ local function ClassicHealPredictionFrame_Cancel()
     wipe(ClassicHealPredictionSettings)
 
     for k, v in pairs(_G.ClassicHealPredictionSettings) do
-        ClassicHealPredictionSettings[k] = v
+        ClassicHealPredictionSettings[k] = deepcopy(v)
     end
 end
 
@@ -1303,16 +1388,6 @@ local function ClassicHealPredictionFrame_OnLoad(self)
     version:SetPoint("BOTTOMLEFT", title, "BOTTOMRIGHT", 5, 0)
     version:SetTextColor(0.5, 0.5, 0.5)
     version:SetText("v" .. ADDON_VERSION)
-
-    local description = self:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    description:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -10)
-    description:SetTextColor(1.0, 1.0, 1.0)
-    description:SetText("These options affect only the prediction of healing from sources other than yourself.")
-
-    local description2 = self:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    description2:SetPoint("TOPLEFT", description, "BOTTOMLEFT", 0, -5)
-    description2:SetTextColor(1.0, 1.0, 1.0)
-    description2:SetText("The prediction of your own healing spells is always enabled without any restrictions.")
 
     checkBoxes = {}
 
@@ -1343,7 +1418,7 @@ local function ClassicHealPredictionFrame_OnLoad(self)
         local checkBox = CreateFrame("CheckButton", name, self, template)
 
         if i == 1 then
-            checkBox:SetPoint("TOPLEFT", description2, "BOTTOMLEFT", 0, -15)
+            checkBox:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -15)
         else
             local anchor
 
@@ -1413,7 +1488,7 @@ local function ClassicHealPredictionFrame_OnLoad(self)
 
     sliderCheckBox:SetPoint("TOPLEFT", checkBoxes[#checkBoxes], "BOTTOMLEFT", 0, 0)
     sliderCheckBox.Text = _G[sliderCheckBoxName .. "Text"]
-    sliderCheckBox.Text:SetText("Show only healing within the next ... seconds")
+    sliderCheckBox.Text:SetText("Set threshold for imminent healing to ... seconds")
     sliderCheckBox.Text:SetTextColor(1, 1, 1)
 
     slider:SetPoint("TOPLEFT", sliderCheckBox, "BOTTOMRIGHT", 0, -15)
@@ -1460,9 +1535,9 @@ local function ClassicHealPredictionFrame_OnLoad(self)
     local sliderName2 = "ClassicHealPredictionSlider2"
     slider2 = CreateFrame("Slider", sliderName2, self, "OptionsSliderTemplate")
 
-    sliderCheckBox2:SetPoint("TOPLEFT", checkBoxes[1], "BOTTOMLEFT", 0, -160)
+    sliderCheckBox2:SetPoint("TOPLEFT", checkBoxes[1], "BOTTOMLEFT", 0, -155)
     sliderCheckBox2.Text = _G[sliderCheckBoxName2 .. "Text"]
-    sliderCheckBox2.Text:SetText("Show healing in red if overhealing exceeds ... percent of max health")
+    sliderCheckBox2.Text:SetText("Use different colors if overhealing exceeds ... percent of max health")
     sliderCheckBox2.Text:SetTextColor(1, 1, 1)
 
     slider2:SetPoint("TOPLEFT", sliderCheckBox2, "BOTTOMRIGHT", 0, -15)
@@ -1502,6 +1577,147 @@ local function ClassicHealPredictionFrame_OnLoad(self)
             ClassicHealPredictionSettings.overhealThreshold = toggleValue(ClassicHealPredictionSettings.overhealThreshold, self:GetChecked())
         end
     )
+
+    local sliderCheckBoxName3 = "ClassicHealPredictionSliderCheckbox3"
+    sliderCheckBox3 = CreateFrame("CheckButton", sliderCheckBoxName3, self, "OptionsCheckButtonTemplate")
+
+    local sliderName3 = "ClassicHealPredictionSlider3"
+    slider3 = CreateFrame("Slider", sliderName3, self, "OptionsSliderTemplate")
+
+    sliderCheckBox3:SetPoint("TOPLEFT", sliderCheckBox2, "BOTTOMLEFT", 0, -50)
+    sliderCheckBox3.Text = _G[sliderCheckBoxName3 .. "Text"]
+    sliderCheckBox3.Text:SetText("Set max overflow in raid frames to ... percent of max health")
+    sliderCheckBox3.Text:SetTextColor(1, 1, 1)
+
+    slider3:SetPoint("TOPLEFT", sliderCheckBox3, "BOTTOMRIGHT", 0, -15)
+    slider3:SetWidth(300)
+    slider3:SetMinMaxValues(0, 100)
+    slider3:SetValueStep(1)
+    slider3:SetObeyStepOnDrag(true)
+    slider3.Text = _G[sliderName3 .. "Text"]
+    slider3.Low = _G[sliderName3 .. "Low"]
+    slider3.High = _G[sliderName3 .. "High"]
+    slider3.Text:SetText(format("%d", slider3:GetValue()))
+    slider3.Low:SetText(format("%d", select(1, slider3:GetMinMaxValues())))
+    slider3.High:SetText(format("%d", select(2, slider3:GetMinMaxValues())))
+
+    slider3:SetScript(
+        "OnValueChanged",
+        function(self, event)
+            self.Text:SetText(format("%d", event))
+            ClassicHealPredictionSettings.raidFramesMaxOverflow = toggleValue(event / 100, ClassicHealPredictionSettings.raidFramesMaxOverflow >= 0)
+        end
+    )
+
+    sliderCheckBox3:SetScript(
+        "OnClick",
+        function(self)
+            if self:GetChecked() then
+                slider3.Text:SetTextColor(1.0, 1.0, 1.0)
+                slider3.Low:SetTextColor(1.0, 1.0, 1.0)
+                slider3.High:SetTextColor(1.0, 1.0, 1.0)
+            else
+                slider3.Text:SetTextColor(0.5, 0.5, 0.5)
+                slider3.Low:SetTextColor(0.5, 0.5, 0.5)
+                slider3.High:SetTextColor(0.5, 0.5, 0.5)
+            end
+
+            slider3:SetEnabled(self:GetChecked())
+            ClassicHealPredictionSettings.raidFramesMaxOverflow = toggleValue(ClassicHealPredictionSettings.raidFramesMaxOverflow, self:GetChecked())
+        end
+    )
+
+    local checkBoxName2 = format("ClassicHealPredictionCheckbox%d", #checkBoxes + 1)
+    checkBox2 = CreateFrame("CheckButton", checkBoxName2, self, "OptionsCheckButtonTemplate")
+    checkBox2:SetPoint("TOPLEFT", sliderCheckBox3, "BOTTOMLEFT", 0, -50)
+    checkBox2.Text = _G[checkBoxName2 .. "Text"]
+    checkBox2.Text:SetText("Show mana cost prediction")
+    checkBox2.Text:SetTextColor(1, 1, 1)
+
+    checkBox2:SetScript(
+        "OnClick",
+        function(self)
+            ClassicHealPredictionSettings.showManaCostPrediction = self:GetChecked()
+        end
+    )
+
+    for k, x in ipairs(
+        {
+            {"Raid Frames: My healing", {1, 2, 3, 4}},
+            {"Raid Frames: Other healing", {5, 6, 7, 8}},
+            {"Unit Frames: My healing", {9, 10, 11, 12}},
+            {"Unit Frames: Other healing", {13, 14, 15, 16}},
+            {"Unit Frames: My mana cost", {17}}
+        }
+    ) do
+        local text, slots = unpack(x)
+
+        local j = 1
+
+        colorSwatches[k] = {}
+
+        for _, i in pairs(slots) do
+            local name = format("ClassicHealPredictionColorSwatch%d", i)
+            local colorSwatch = CreateFrame("Button", name, self, "ClassicHealPredictionColorSwatchTemplate")
+
+            colorSwatch.index = i
+
+            if k == 1 and j == 1 then
+                colorSwatch:SetPoint("TOPLEFT", checkBox2, "BOTTOMLEFT", 4, -15)
+            elseif k ~= 1 and j == 1 then
+                colorSwatch:SetPoint("TOPLEFT", colorSwatches[k - 1][1], "BOTTOMLEFT", 0, -10)
+            else
+                colorSwatch:SetPoint("LEFT", colorSwatches[k][j - 1], "RIGHT", 0, 0)
+            end
+
+            j = j + 1
+
+            local r, g, b, a = unpack(ClassicHealPredictionSettings.colors[colorSwatch.index])
+            colorSwatch:GetNormalTexture():SetVertexColor(r, g, b, a)
+
+            local function callback(previousValues)
+                local newR, newG, newB, newA
+
+                if previousValues then
+                    newR, newG, newB, newA = unpack(previousValues)
+                else
+                    newA, newR, newG, newB = 1.0 - OpacitySliderFrame:GetValue(), ColorPickerFrame:GetColorRGB()
+                end
+
+                colorSwatch:GetNormalTexture():SetVertexColor(newR, newG, newB, newA)
+                ClassicHealPredictionSettings.colors[colorSwatch.index] = {gradient(newR, newG, newB, newA)}
+            end
+
+            colorSwatch:SetScript(
+                "OnClick",
+                function(self)
+                    local r, g, b, a = unpack(ClassicHealPredictionSettings.colors[colorSwatch.index])
+                    ColorPickerFrame.hasOpacity, ColorPickerFrame.opacity = true, 1.0 - a
+                    ColorPickerFrame.previousValues = {r, g, b, a}
+                    ColorPickerFrame.func, ColorPickerFrame.opacityFunc, ColorPickerFrame.cancelFunc = callback, callback, callback
+                    ColorPickerFrame:SetColorRGB(r, g, b)
+                    ColorPickerFrame:Hide()
+                    ColorPickerFrame:Show()
+                end
+            )
+
+            tinsert(colorSwatches[k], colorSwatch)
+        end
+
+        local textString = self:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        textString:SetPoint("LEFT", colorSwatches[k][#colorSwatches[k]], "RIGHT", 16 * (4 - #colorSwatches[k]) + 5, 0)
+        textString:SetTextColor(1, 1, 1)
+        textString:SetText(text)
+    end
+
+    local colorSwatches2 = colorSwatches
+    colorSwatches = {}
+
+    for _, t in ipairs(colorSwatches2) do
+        for _, x in ipairs(t) do
+            tappend(colorSwatches, x)
+        end
+    end
 
     self.name = ADDON_NAME
     self.default = ClassicHealPredictionFrame_Default
