@@ -41,7 +41,7 @@ local GetSpellPowerCost = GetSpellPowerCost
 local GetSpellInfo = GetSpellInfo
 
 local function UnitCastingInfo(unit)
-    assert(unit == "player")
+    assert(unit and UnitIsUnit("player", unit))
     return CastingInfo()
 end
 
@@ -320,6 +320,10 @@ local guidToUnitFrame = {}
 local guidToCompactUnitFrame = {}
 local guidToNameplateFrame = {}
 
+local lastFrameTime = -1
+local deferredUnitFrames = {}
+local deferredCompactUnitFrames = {}
+
 local loadedSettings = false
 local loadedFrame = false
 local checkBoxes
@@ -354,13 +358,15 @@ local function getIncomingHeals(unit)
                 local name, _, _, _, _, _, source = UnitBuff(unit, i)
 
                 if name then
-                    if UnitIsUnit("player", source) then
+                    if source and UnitIsUnit("player", source) then
                         myDelta = max(myDelta, tickIntervals[name] or 1)
                     end
 
                     if myDelta == 3 then
                         break
                     end
+                else
+                    break
                 end
             end
 
@@ -392,7 +398,7 @@ local function getIncomingHeals(unit)
                 local name, _, _, _, _, _, source = UnitBuff(unit, i)
 
                 if name then
-                    if UnitIsUnit("player", source) then
+                    if source and UnitIsUnit("player", source) then
                         myDelta = max(myDelta, tickIntervals[name] or 1)
                     else
                         otherDelta = max(otherDelta, tickIntervals[name] or 1)
@@ -401,6 +407,8 @@ local function getIncomingHeals(unit)
                     if myDelta == 3 and otherDelta == 3 then
                         break
                     end
+                else
+                    break
                 end
             end
 
@@ -590,9 +598,10 @@ do
 
     function CompactUnitFrame_UpdateHealPrediction(frame)
         local cutoff
+        local maxOverflow = ClassicHealPredictionSettings.raidFramesMaxOverflow
 
-        if ClassicHealPredictionSettings.raidFramesMaxOverflow >= 0 then
-            cutoff = 1.0 + ClassicHealPredictionSettings.raidFramesMaxOverflow
+        if maxOverflow >= 0 then
+            cutoff = 1.0 + maxOverflow
         end
 
         updateHealPrediction(frame, frame.displayedUnit, cutoff, frame._CHP_setGradient, compactUnitFrameColorPalette, compactUnitFrameColorPalette2, CompactUnitFrameUtil_UpdateFillBar)
@@ -600,12 +609,29 @@ do
 
     function UnitFrameHealPredictionBars_Update(frame)
         local cutoff
+        local maxOverflow = ClassicHealPredictionSettings.unitFramesMaxOverflow
 
-        if ClassicHealPredictionSettings.unitFramesMaxOverflow >= 0 then
-            cutoff = 1.0 + ClassicHealPredictionSettings.unitFramesMaxOverflow
+        if maxOverflow >= 0 then
+            cutoff = 1.0 + maxOverflow
         end
 
         updateHealPrediction(frame, frame.unit, cutoff, false, unitFrameColorPalette, unitFrameColorPalette2, UnitFrameUtil_UpdateFillBar)
+    end
+end
+
+local function defer_CompactUnitFrame_UpdateHealPrediction(frame)
+    if GetTime() > lastFrameTime then
+        deferredCompactUnitFrames[frame] = true
+    else
+        CompactUnitFrame_UpdateHealPrediction(frame)
+    end
+end
+
+local function defer_UnitFrameHealPredictionBars_Update(frame)
+    if GetTime() > lastFrameTime then
+        deferredUnitFrames[frame] = true
+    else
+        UnitFrameHealPredictionBars_Update(frame)
     end
 end
 
@@ -615,6 +641,7 @@ local function UnitFrameManaCostPredictionBars_Update(frame, isStarting, startTi
     end
 
     if not ClassicHealPredictionSettings.showManaCostPrediction then
+        frame.myManaCostPredictionBar:Hide()
         return
     end
 
@@ -657,7 +684,7 @@ local function UnitFrameHealPredictionBars_UpdateSize(self)
         return
     end
 
-    UnitFrameHealPredictionBars_Update(self)
+    defer_UnitFrameHealPredictionBars_Update(self)
 end
 
 hooksecurefunc(
@@ -671,9 +698,9 @@ hooksecurefunc(
 
         if unit == self.unit or unit == self.displayedUnit then
             if event == "UNIT_MAXHEALTH" then
-                CompactUnitFrame_UpdateHealPrediction(self)
+                defer_CompactUnitFrame_UpdateHealPrediction(self)
             elseif event == "UNIT_HEALTH" or event == "UNIT_HEALTH_FREQUENT" then
-                CompactUnitFrame_UpdateHealPrediction(self)
+                defer_CompactUnitFrame_UpdateHealPrediction(self)
             end
         end
     end
@@ -707,12 +734,12 @@ hooksecurefunc(
         end
 
         if UnitExists(unit) then
-            CompactUnitFrame_UpdateHealPrediction(frame)
+            defer_CompactUnitFrame_UpdateHealPrediction(frame)
         end
     end
 )
 
-hooksecurefunc("CompactUnitFrame_UpdateMaxHealth", CompactUnitFrame_UpdateHealPrediction)
+hooksecurefunc("CompactUnitFrame_UpdateMaxHealth", defer_CompactUnitFrame_UpdateHealPrediction)
 
 local function unitFrame_Update(self)
     do
@@ -738,7 +765,7 @@ local function unitFrame_Update(self)
         end
     end
 
-    UnitFrameHealPredictionBars_Update(self)
+    defer_UnitFrameHealPredictionBars_Update(self)
     UnitFrameManaCostPredictionBars_Update(self)
 end
 
@@ -751,7 +778,7 @@ hooksecurefunc(
     function(self, event, unit)
         if unit == self.unit then
             if event == "UNIT_MAXHEALTH" then
-                UnitFrameHealPredictionBars_Update(self)
+                defer_UnitFrameHealPredictionBars_Update(self)
             end
         end
     end
@@ -766,7 +793,7 @@ hooksecurefunc(
             if currValue ~= self._CHP_currValue then
                 if not self.ignoreNoUnit or UnitGUID(self.unit) then
                     self._CHP_currValue = currValue
-                    UnitFrameHealPredictionBars_Update(self:GetParent())
+                    defer_UnitFrameHealPredictionBars_Update(self:GetParent())
                 end
             end
         end
@@ -795,7 +822,7 @@ hooksecurefunc(
             end
         end
 
-        UnitFrameHealPredictionBars_Update(statusbar:GetParent())
+        defer_UnitFrameHealPredictionBars_Update(statusbar:GetParent())
     end
 )
 
@@ -803,7 +830,7 @@ local function UpdateHealPredictionAll()
     for _, unitFrames in pairs(guidToUnitFrame) do
         if unitFrames then
             for unitFrame in pairs(unitFrames) do
-                UnitFrameHealPredictionBars_Update(unitFrame)
+                defer_UnitFrameHealPredictionBars_Update(unitFrame)
             end
         end
     end
@@ -811,14 +838,14 @@ local function UpdateHealPredictionAll()
     for _, compactUnitFrames in pairs(guidToCompactUnitFrame) do
         if compactUnitFrames then
             for compactUnitFrame in pairs(compactUnitFrames) do
-                CompactUnitFrame_UpdateHealPrediction(compactUnitFrame)
+                defer_CompactUnitFrame_UpdateHealPrediction(compactUnitFrame)
             end
         end
     end
 
     for _, namePlateFrame in pairs(guidToNameplateFrame) do
         if namePlateFrame then
-            CompactUnitFrame_UpdateHealPrediction(namePlateFrame)
+            defer_CompactUnitFrame_UpdateHealPrediction(namePlateFrame)
         end
     end
 end
@@ -832,7 +859,7 @@ local function UpdateHealPrediction(...)
 
             if unitFrames then
                 for unitFrame in pairs(unitFrames) do
-                    UnitFrameHealPredictionBars_Update(unitFrame)
+                    defer_UnitFrameHealPredictionBars_Update(unitFrame)
                 end
             end
         end
@@ -842,7 +869,7 @@ local function UpdateHealPrediction(...)
 
             if compactUnitFrames then
                 for compactUnitFrame in pairs(compactUnitFrames) do
-                    CompactUnitFrame_UpdateHealPrediction(compactUnitFrame)
+                    defer_CompactUnitFrame_UpdateHealPrediction(compactUnitFrame)
                 end
             end
         end
@@ -851,10 +878,47 @@ local function UpdateHealPrediction(...)
             local namePlateFrame = guidToNameplateFrame[unitGUID]
 
             if namePlateFrame then
-                CompactUnitFrame_UpdateHealPrediction(namePlateFrame)
+                defer_CompactUnitFrame_UpdateHealPrediction(namePlateFrame)
             end
         end
     end
+end
+
+local function ClassicHealPrediction_OnEvent(event, arg1)
+    local namePlateUnitToken = arg1
+
+    if not UnitCanAssist("player", namePlateUnitToken) then
+        return
+    end
+
+    local unitGUID = UnitGUID(namePlateUnitToken)
+
+    if event == "NAME_PLATE_UNIT_ADDED" then
+        local namePlate = C_NamePlate.GetNamePlateForUnit(namePlateUnitToken)
+        local namePlateFrame = namePlate and namePlate.UnitFrame
+        guidToNameplateFrame[unitGUID] = namePlateFrame
+
+        if namePlateFrame then
+            defer_CompactUnitFrame_UpdateHealPrediction(namePlateFrame)
+        end
+    elseif event == "NAME_PLATE_UNIT_REMOVED" then
+        guidToNameplateFrame[unitGUID] = nil
+    end
+end
+
+local function ClassicHealPrediction_OnUpdate()
+    for frame in pairs(deferredUnitFrames) do
+        UnitFrameHealPredictionBars_Update(frame)
+    end
+
+    for frame in pairs(deferredCompactUnitFrames) do
+        CompactUnitFrame_UpdateHealPrediction(frame)
+    end
+
+    wipe(deferredUnitFrames)
+    wipe(deferredCompactUnitFrames)
+
+    lastFrameTime = GetTime()
 end
 
 do
@@ -1328,26 +1392,6 @@ local function ClassicHealPredictionFrame_OnEvent(self, event, arg1)
         SetCVar("predictedHealth", 1)
 
         loadedSettings = true
-    else
-        local namePlateUnitToken = arg1
-
-        if not UnitCanAssist("player", namePlateUnitToken) then
-            return
-        end
-
-        local unitGUID = UnitGUID(namePlateUnitToken)
-
-        if event == "NAME_PLATE_UNIT_ADDED" then
-            local namePlate = C_NamePlate.GetNamePlateForUnit(namePlateUnitToken)
-            local namePlateFrame = namePlate and namePlate.UnitFrame
-            guidToNameplateFrame[unitGUID] = namePlateFrame
-
-            if namePlateFrame then
-                CompactUnitFrame_UpdateHealPrediction(namePlateFrame)
-            end
-        elseif event == "NAME_PLATE_UNIT_REMOVED" then
-            guidToNameplateFrame[unitGUID] = nil
-        end
     end
 end
 
@@ -1400,7 +1444,14 @@ local function ClassicHealPredictionFrame_OnLoad(self)
     frame:SetScript(
         "OnEvent",
         function(_, ...)
-            ClassicHealPredictionFrame_OnEvent(self, ...)
+            ClassicHealPrediction_OnEvent(...)
+        end
+    )
+
+    frame:SetScript(
+        "OnUpdate",
+        function(_, ...)
+            ClassicHealPrediction_OnUpdate(...)
         end
     )
 
