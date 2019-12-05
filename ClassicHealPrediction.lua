@@ -246,7 +246,8 @@ local ClassicHealPredictionDefaultSettings = {
         {gradient(0.0, 0.447, 1.0, 1.0)}
     },
     showManaCostPrediction = true,
-    raidFramesMaxOverflow = toggleValue(0.05, true)
+    raidFramesMaxOverflow = toggleValue(0.05, true),
+    unitFramesMaxOverflow = toggleValue(0.0, true)
 }
 local ClassicHealPredictionSettings = ClassicHealPredictionDefaultSettings
 
@@ -326,9 +327,11 @@ local checkBox2
 local slider
 local slider2
 local slider3
+local slider4
 local sliderCheckBox
 local sliderCheckBox2
 local sliderCheckBox3
+local sliderCheckBox4
 local colorSwatches = {}
 
 local function getIncomingHeals(unit)
@@ -596,7 +599,13 @@ do
     end
 
     function UnitFrameHealPredictionBars_Update(frame)
-        updateHealPrediction(frame, frame.unit, 1.0, false, unitFrameColorPalette, unitFrameColorPalette2, UnitFrameUtil_UpdateFillBar)
+        local cutoff
+
+        if ClassicHealPredictionSettings.unitFramesMaxOverflow >= 0 then
+            cutoff = 1.0 + ClassicHealPredictionSettings.unitFramesMaxOverflow
+        end
+
+        updateHealPrediction(frame, frame.unit, cutoff, false, unitFrameColorPalette, unitFrameColorPalette2, UnitFrameUtil_UpdateFillBar)
     end
 end
 
@@ -1277,6 +1286,21 @@ local function ClassicHealPredictionFrame_Refresh()
         slider3.High:SetTextColor(0.5, 0.5, 0.5)
     end
 
+    sliderCheckBox4:SetChecked(ClassicHealPredictionSettings.unitFramesMaxOverflow >= 0)
+
+    slider4:SetValue(toggleValue(ClassicHealPredictionSettings.unitFramesMaxOverflow, true) * 100)
+    slider4:SetEnabled(ClassicHealPredictionSettings.unitFramesMaxOverflow >= 0)
+
+    if ClassicHealPredictionSettings.unitFramesMaxOverflow >= 0 then
+        slider4.Text:SetTextColor(1.0, 1.0, 1.0)
+        slider4.Low:SetTextColor(1.0, 1.0, 1.0)
+        slider4.High:SetTextColor(1.0, 1.0, 1.0)
+    else
+        slider4.Text:SetTextColor(0.5, 0.5, 0.5)
+        slider4.Low:SetTextColor(0.5, 0.5, 0.5)
+        slider4.High:SetTextColor(0.5, 0.5, 0.5)
+    end
+
     checkBox2:SetChecked(ClassicHealPredictionSettings.showManaCostPrediction)
 
     for _, colorSwatch in ipairs(colorSwatches) do
@@ -1627,9 +1651,58 @@ local function ClassicHealPredictionFrame_OnLoad(self)
         end
     )
 
+    local sliderCheckBoxName4 = "ClassicHealPredictionSliderCheckbox4"
+    sliderCheckBox4 = CreateFrame("CheckButton", sliderCheckBoxName4, self, "OptionsCheckButtonTemplate")
+
+    local sliderName4 = "ClassicHealPredictionSlider4"
+    slider4 = CreateFrame("Slider", sliderName4, self, "OptionsSliderTemplate")
+
+    sliderCheckBox4:SetPoint("TOPLEFT", sliderCheckBox3, "BOTTOMLEFT", 0, -50)
+    sliderCheckBox4.Text = _G[sliderCheckBoxName4 .. "Text"]
+    sliderCheckBox4.Text:SetText("Set max overflow in unit frames to ... percent of max health")
+    sliderCheckBox4.Text:SetTextColor(1, 1, 1)
+
+    slider4:SetPoint("TOPLEFT", sliderCheckBox4, "BOTTOMRIGHT", 0, -15)
+    slider4:SetWidth(300)
+    slider4:SetMinMaxValues(0, 100)
+    slider4:SetValueStep(1)
+    slider4:SetObeyStepOnDrag(true)
+    slider4.Text = _G[sliderName4 .. "Text"]
+    slider4.Low = _G[sliderName4 .. "Low"]
+    slider4.High = _G[sliderName4 .. "High"]
+    slider4.Text:SetText(format("%d", slider4:GetValue()))
+    slider4.Low:SetText(format("%d", select(1, slider4:GetMinMaxValues())))
+    slider4.High:SetText(format("%d", select(2, slider4:GetMinMaxValues())))
+
+    slider4:SetScript(
+        "OnValueChanged",
+        function(self, event)
+            self.Text:SetText(format("%d", event))
+            ClassicHealPredictionSettings.unitFramesMaxOverflow = toggleValue(event / 100, ClassicHealPredictionSettings.unitFramesMaxOverflow >= 0)
+        end
+    )
+
+    sliderCheckBox4:SetScript(
+        "OnClick",
+        function(self)
+            if self:GetChecked() then
+                slider4.Text:SetTextColor(1.0, 1.0, 1.0)
+                slider4.Low:SetTextColor(1.0, 1.0, 1.0)
+                slider4.High:SetTextColor(1.0, 1.0, 1.0)
+            else
+                slider4.Text:SetTextColor(0.5, 0.5, 0.5)
+                slider4.Low:SetTextColor(0.5, 0.5, 0.5)
+                slider4.High:SetTextColor(0.5, 0.5, 0.5)
+            end
+
+            slider4:SetEnabled(self:GetChecked())
+            ClassicHealPredictionSettings.unitFramesMaxOverflow = toggleValue(ClassicHealPredictionSettings.unitFramesMaxOverflow, self:GetChecked())
+        end
+    )
+
     local checkBoxName2 = format("ClassicHealPredictionCheckbox%d", #checkBoxes + 1)
     checkBox2 = CreateFrame("CheckButton", checkBoxName2, self, "OptionsCheckButtonTemplate")
-    checkBox2:SetPoint("TOPLEFT", sliderCheckBox3, "BOTTOMLEFT", 0, -50)
+    checkBox2:SetPoint("TOPLEFT", sliderCheckBox4, "BOTTOMLEFT", 0, -50)
     checkBox2.Text = _G[checkBoxName2 .. "Text"]
     checkBox2.Text:SetText("Show mana cost prediction")
     checkBox2.Text:SetTextColor(1, 1, 1)
@@ -1663,9 +1736,9 @@ local function ClassicHealPredictionFrame_OnLoad(self)
             colorSwatch.index = i
 
             if k == 1 and j == 1 then
-                colorSwatch:SetPoint("TOPLEFT", checkBox2, "BOTTOMLEFT", 4, -15)
+                colorSwatch:SetPoint("TOPRIGHT", -245, -60)
             elseif k ~= 1 and j == 1 then
-                colorSwatch:SetPoint("TOPLEFT", colorSwatches[k - 1][1], "BOTTOMLEFT", 0, -10)
+                colorSwatch:SetPoint("TOPLEFT", colorSwatches[k - 1][1], "BOTTOMLEFT", 0, -8)
             else
                 colorSwatch:SetPoint("LEFT", colorSwatches[k][j - 1], "RIGHT", 0, 0)
             end
