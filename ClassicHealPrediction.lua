@@ -58,6 +58,7 @@ local MAX_RAID_MEMBERS = MAX_RAID_MEMBERS
 local PlayerFrame = PlayerFrame
 local PetFrame = PetFrame
 local TargetFrame = TargetFrame
+local TargetFrameToT = TargetFrameToT
 local PartyMemberFrame = {}
 local PartyMemberFramePetFrame = {}
 
@@ -1288,6 +1289,7 @@ do
         TargetFrame,
         {
             {{}, "$parentTotalAbsorbBar", "ARTWORK"},
+            {{}, "$parentTotalAbsorbBarOverlay", "ARTWORK", 1},
             {{}, "$parentMyHealPredictionBar", "ARTWORK", 1},
             {{}, "$parentOtherHealPredictionBar", "ARTWORK", 1},
             {{}, "$parentMyHealPredictionBar2", "ARTWORK", 1},
@@ -1295,7 +1297,23 @@ do
             {{}, "$parentHealAbsorbBar", "ARTWORK", 1},
             {{}, "$parentHealAbsorbBarLeftShadow", "ARTWORK", 1},
             {{}, "$parentHealAbsorbBarRightShadow", "ARTWORK", 1},
+            {{1}, "$parentOverAbsorbGlow", "ARTWORK", 1},
+            {{1}, "$parentOverHealAbsorbGlow", "ARTWORK", 1}
+        }
+    )
+
+    initUnitFrame(
+        TargetFrameToT,
+        {
+            {{}, "$parentTotalAbsorbBar", "ARTWORK"},
             {{}, "$parentTotalAbsorbBarOverlay", "ARTWORK", 1},
+            {{}, "$parentMyHealPredictionBar", "ARTWORK", 1},
+            {{}, "$parentOtherHealPredictionBar", "ARTWORK", 1},
+            {{}, "$parentMyHealPredictionBar2", "ARTWORK", 1},
+            {{}, "$parentOtherHealPredictionBar2", "ARTWORK", 1},
+            {{}, "$parentHealAbsorbBar", "ARTWORK", 1},
+            {{}, "$parentHealAbsorbBarLeftShadow", "ARTWORK", 1},
+            {{}, "$parentHealAbsorbBarRightShadow", "ARTWORK", 1},
             {{1}, "$parentOverAbsorbGlow", "ARTWORK", 1},
             {{1}, "$parentOverHealAbsorbGlow", "ARTWORK", 1}
         }
@@ -1319,7 +1337,22 @@ do
             }
         )
 
-        initUnitFrame(PartyMemberFramePetFrame[i], {})
+        initUnitFrame(
+            PartyMemberFramePetFrame[i],
+            {
+                {{}, "$parentTotalAbsorbBar", "ARTWORK"},
+                {{}, "$parentTotalAbsorbBarOverlay", "ARTWORK", 1},
+                {{1, 1}, "$parentMyHealPredictionBar", "BACKGROUND"},
+                {{1, 1}, "$parentOtherHealPredictionBar", "BACKGROUND"},
+                {{1, 1}, "$parentMyHealPredictionBar2", "BACKGROUND"},
+                {{1, 1}, "$parentOtherHealPredictionBar2", "BACKGROUND"},
+                {{1, 1}, "$parentHealAbsorbBar", "BACKGROUND"},
+                {{1, 1}, "$parentHealAbsorbBarLeftShadow", "BACKGROUND"},
+                {{1, 1}, "$parentHealAbsorbBarRightShadow", "BACKGROUND"},
+                {{1, 1}, "$parentOverAbsorbGlow", "ARTWORK"},
+                {{1, 1}, "$parentOverHealAbsorbGlow", "ARTWORK"}
+            }
+        )
     end
 end
 
