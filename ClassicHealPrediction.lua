@@ -451,33 +451,119 @@ local function updateHealPrediction(frame, unit, cutoff, gradient, colorPalette,
     end
 
     local myIncomingHeal1, myIncomingHeal2, otherIncomingHeal1, otherIncomingHeal2 = getIncomingHeals(unit)
-    local myIncomingHeal = myIncomingHeal1 + myIncomingHeal2
-    local otherIncomingHeal = otherIncomingHeal1 + otherIncomingHeal2
-    local allIncomingHeal = myIncomingHeal + otherIncomingHeal
     local totalAbsorb = 0
-    local myCurrentHealAbsorb = 0
+    local currentHealAbsorb = 0
 
     local healAbsorb = frame._CHP_healAbsorb
 
     if healAbsorb then
-        myCurrentHealAbsorb = 0
+        currentHealAbsorb = 0
 
-        if health < myCurrentHealAbsorb then
+        if health < currentHealAbsorb then
             frame._CHP_overHealAbsorbGlow:Show()
-            myCurrentHealAbsorb = health
+            currentHealAbsorb = health
         else
             frame._CHP_overHealAbsorbGlow:Hide()
         end
     end
 
-    local incomingHeal1 = myIncomingHeal1 + otherIncomingHeal1
-    local incomingHeal2
+    local overhealing = maxHealth <= 0 and 0 or max((health - currentHealAbsorb + myIncomingHeal1 + otherIncomingHeal1) / maxHealth - 1, 0)
 
-    local overhealing = maxHealth <= 0 and 0 or max((health - myCurrentHealAbsorb + incomingHeal1) / maxHealth - 1, 0)
+    do
+        local overhealThreshold = ClassicHealPredictionSettings.overhealThreshold
+
+        if overhealThreshold >= 0 and overhealing > overhealThreshold then
+            colorPalette = colorPalette2
+        end
+    end
+
+    local colors = ClassicHealPredictionSettings.colors
+
+    local myHealPrediction1 = frame._CHP_myHealPrediction
+    local myHealPrediction2 = frame._CHP_myHealPrediction2
+    local otherHealPrediction1 = frame._CHP_otherHealPrediction
+    local otherHealPrediction2 = frame._CHP_otherHealPrediction2
+
+    if gradient then
+        local r, g, b, a, r2, g2, b2
+
+        r, g, b, a, r2, g2, b2 = unpack(colors[colorPalette[1]])
+
+        if a == 0 then
+            myIncomingHeal1 = 0
+        else
+            myHealPrediction1:SetGradientAlpha("VERTICAL", r2, g2, b2, a, r, g, b, a)
+        end
+
+        r, g, b, a, r2, g2, b2 = unpack(colors[colorPalette[2]])
+
+        if a == 0 then
+            myIncomingHeal2 = 0
+        else
+            myHealPrediction2:SetGradientAlpha("VERTICAL", r2, g2, b2, a, r, g, b, a)
+        end
+
+        r, g, b, a, r2, g2, b2 = unpack(colors[colorPalette[3]])
+
+        if a == 0 then
+            otherIncomingHeal1 = 0
+        else
+            otherHealPrediction1:SetGradientAlpha("VERTICAL", r2, g2, b2, a, r, g, b, a)
+        end
+
+        r, g, b, a, r2, g2, b2 = unpack(colors[colorPalette[4]])
+
+        if a == 0 then
+            otherIncomingHeal2 = 0
+        else
+            otherHealPrediction2:SetGradientAlpha("VERTICAL", r2, g2, b2, a, r, g, b, a)
+        end
+    else
+        local r, g, b, a
+
+        r, g, b, a = unpack(colors[colorPalette[1]])
+
+        if a == 0 then
+            myIncomingHeal1 = 0
+        else
+            myHealPrediction1:SetVertexColor(r, g, b, a)
+        end
+
+        r, g, b, a = unpack(colors[colorPalette[2]])
+
+        if a == 0 then
+            myIncomingHeal2 = 0
+        else
+            myHealPrediction2:SetVertexColor(r, g, b, a)
+        end
+
+        r, g, b, a = unpack(colors[colorPalette[3]])
+
+        if a == 0 then
+            otherIncomingHeal1 = 0
+        else
+            otherHealPrediction1:SetVertexColor(r, g, b, a)
+        end
+
+        r, g, b, a = unpack(colors[colorPalette[4]])
+
+        if a == 0 then
+            otherIncomingHeal2 = 0
+        else
+            otherHealPrediction2:SetVertexColor(r, g, b, a)
+        end
+    end
+
+    local myIncomingHeal = myIncomingHeal1 + myIncomingHeal2
+    local otherIncomingHeal = otherIncomingHeal1 + otherIncomingHeal2
+    local allIncomingHeal = myIncomingHeal + otherIncomingHeal
 
     if cutoff then
-        allIncomingHeal = min(allIncomingHeal, maxHealth * cutoff - health + myCurrentHealAbsorb)
+        allIncomingHeal = min(allIncomingHeal, maxHealth * cutoff - health + currentHealAbsorb)
     end
+
+    local incomingHeal1 = myIncomingHeal1 + otherIncomingHeal1
+    local incomingHeal2
 
     incomingHeal1 = min(incomingHeal1, allIncomingHeal)
     incomingHeal2 = allIncomingHeal - incomingHeal1
@@ -488,13 +574,13 @@ local function updateHealPrediction(frame, unit, cutoff, gradient, colorPalette,
 
     local overAbsorb = false
 
-    if health - myCurrentHealAbsorb + allIncomingHeal + totalAbsorb >= maxHealth or health + totalAbsorb >= maxHealth then
+    if health - currentHealAbsorb + allIncomingHeal + totalAbsorb >= maxHealth or health + totalAbsorb >= maxHealth then
         if totalAbsorb > 0 then
             overAbsorb = true
         end
 
-        if allIncomingHeal > myCurrentHealAbsorb then
-            totalAbsorb = max(0, maxHealth - (health - myCurrentHealAbsorb + allIncomingHeal))
+        if allIncomingHeal > currentHealAbsorb then
+            totalAbsorb = max(0, maxHealth - (health - currentHealAbsorb + allIncomingHeal))
         else
             totalAbsorb = max(0, maxHealth - health)
         end
@@ -507,14 +593,14 @@ local function updateHealPrediction(frame, unit, cutoff, gradient, colorPalette,
     end
 
     local healthTexture = frame._CHP_healthBar:GetStatusBarTexture()
-    local myCurrentHealAbsorbPercent = 0
+    local currentHealAbsorbPercent = 0
     local healAbsorbTexture
 
     if healAbsorb then
-        myCurrentHealAbsorbPercent = myCurrentHealAbsorb / maxHealth
+        currentHealAbsorbPercent = currentHealAbsorb / maxHealth
 
-        if myCurrentHealAbsorb > allIncomingHeal then
-            local shownHealAbsorb = myCurrentHealAbsorb - allIncomingHeal
+        if currentHealAbsorb > allIncomingHeal then
+            local shownHealAbsorb = currentHealAbsorb - allIncomingHeal
             local shownHealAbsorbPercent = shownHealAbsorb / maxHealth
 
             healAbsorbTexture = updateFillBar(frame, healthTexture, healAbsorb, shownHealAbsorb, -shownHealAbsorbPercent)
@@ -541,44 +627,7 @@ local function updateHealPrediction(frame, unit, cutoff, gradient, colorPalette,
         end
     end
 
-    local myHealPrediction1 = frame._CHP_myHealPrediction
-    local myHealPrediction2 = frame._CHP_myHealPrediction2
-    local otherHealPrediction1 = frame._CHP_otherHealPrediction
-    local otherHealPrediction2 = frame._CHP_otherHealPrediction2
-
-    do
-        local overhealThreshold = ClassicHealPredictionSettings.overhealThreshold
-
-        if overhealThreshold >= 0 and overhealing > overhealThreshold then
-            colorPalette = colorPalette2
-        end
-    end
-
-    local colors = ClassicHealPredictionSettings.colors
-
-    if gradient then
-        local r1, g1, b1, a1, r2, g2, b2, a2
-        r1, g1, b1, a1, r2, g2, b2, a2 = unpack(colors[colorPalette[1]])
-        myHealPrediction1:SetGradientAlpha("VERTICAL", r2, g2, b2, a2, r1, g1, b1, a1)
-        r1, g1, b1, a1, r2, g2, b2, a2 = unpack(colors[colorPalette[2]])
-        myHealPrediction2:SetGradientAlpha("VERTICAL", r2, g2, b2, a2, r1, g1, b1, a1)
-        r1, g1, b1, a1, r2, g2, b2, a2 = unpack(colors[colorPalette[3]])
-        otherHealPrediction1:SetGradientAlpha("VERTICAL", r2, g2, b2, a2, r1, g1, b1, a1)
-        r1, g1, b1, a1, r2, g2, b2, a2 = unpack(colors[colorPalette[4]])
-        otherHealPrediction2:SetGradientAlpha("VERTICAL", r2, g2, b2, a2, r1, g1, b1, a1)
-    else
-        local r1, g1, b1, a1
-        r1, g1, b1, a1 = unpack(colors[colorPalette[1]])
-        myHealPrediction1:SetVertexColor(r1, g1, b1, a1)
-        r1, g1, b1, a1 = unpack(colors[colorPalette[2]])
-        myHealPrediction2:SetVertexColor(r1, g1, b1, a1)
-        r1, g1, b1, a1 = unpack(colors[colorPalette[3]])
-        otherHealPrediction1:SetVertexColor(r1, g1, b1, a1)
-        r1, g1, b1, a1 = unpack(colors[colorPalette[4]])
-        otherHealPrediction2:SetVertexColor(r1, g1, b1, a1)
-    end
-
-    local incomingHealsTexture = updateFillBar(frame, healthTexture, myHealPrediction1, myIncomingHeal1, -myCurrentHealAbsorbPercent)
+    local incomingHealsTexture = updateFillBar(frame, healthTexture, myHealPrediction1, myIncomingHeal1, -currentHealAbsorbPercent)
     incomingHealsTexture = updateFillBar(frame, incomingHealsTexture, otherHealPrediction1, otherIncomingHeal1)
     incomingHealsTexture = updateFillBar(frame, incomingHealsTexture, myHealPrediction2, myIncomingHeal2)
     incomingHealsTexture = updateFillBar(frame, incomingHealsTexture, otherHealPrediction2, otherIncomingHeal2)
@@ -803,10 +852,6 @@ hooksecurefunc(
 hooksecurefunc(
     "UnitFrameHealthBar_Update",
     function(statusbar, unit)
-        if not statusbar or statusbar.lockValues then
-            return
-        end
-
         if not statusbar or statusbar.lockValues then
             return
         end
@@ -1373,7 +1418,7 @@ local function ClassicHealPredictionFrame_Refresh()
     end
 end
 
-local function ClassicHealPredictionFrame_OnEvent(self, event, arg1)
+local function ClassicHealPredictionFrame_OnEvent(self, event)
     if event == "ADDON_LOADED" then
         if not _G.ClassicHealPredictionSettings then
             _G.ClassicHealPredictionSettings = {}
@@ -1392,6 +1437,8 @@ local function ClassicHealPredictionFrame_OnEvent(self, event, arg1)
         SetCVar("predictedHealth", 1)
 
         loadedSettings = true
+
+        self:UnregisterEvent("ADDON_LOADED")
     end
 end
 
