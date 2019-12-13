@@ -36,6 +36,9 @@ local UnitHealthMax = UnitHealthMax
 local UnitCanAssist = UnitCanAssist
 local UnitIsUnit = UnitIsUnit
 local UnitBuff = UnitBuff
+local UnitIsConnected = UnitIsConnected
+local UnitIsGhost = UnitIsGhost
+local UnitIsFeignDeath = UnitIsFeignDeath
 local CastingInfo = CastingInfo
 local GetSpellPowerCost = GetSpellPowerCost
 local GetSpellInfo = GetSpellInfo
@@ -248,7 +251,9 @@ local ClassicHealPredictionDefaultSettings = {
     },
     showManaCostPrediction = true,
     raidFramesMaxOverflow = toggleValue(0.05, true),
-    unitFramesMaxOverflow = toggleValue(0.0, true)
+    unitFramesMaxOverflow = toggleValue(0.0, true),
+    showGhostStatusText = true,
+    showFeignDeathStatusText = true
 }
 local ClassicHealPredictionSettings = ClassicHealPredictionDefaultSettings
 
@@ -329,6 +334,8 @@ local loadedSettings = false
 local loadedFrame = false
 local checkBoxes
 local checkBox2
+local checkBox3
+local checkBox4
 local slider
 local slider2
 local slider3
@@ -790,6 +797,61 @@ hooksecurefunc(
 )
 
 hooksecurefunc("CompactUnitFrame_UpdateMaxHealth", defer_CompactUnitFrame_UpdateHealPrediction)
+
+do
+    local GHOST =
+        ({
+        deDE = "Geist",
+        enUS = "Ghost",
+        esES = "Fantasma",
+        esMX = "Fantasma",
+        frFR = "Fantôme",
+        itIT = "Fantasma",
+        koKR = "유령",
+        ptBR = "Fantasma",
+        ruRU = "Призрак",
+        zhCN = "鬼魂",
+        zhTW = "鬼魂"
+    })[GetLocale()]
+
+    local FEIGN =
+        ({
+        deDE = "Totstellen",
+        enUS = "Feign",
+        esES = "Fingir",
+        esMX = "Fingir",
+        frFR = "Feindre",
+        itIT = "Fingere",
+        koKR = "죽은척하기",
+        ptBR = "Fingir",
+        ruRU = "Притвориться",
+        zhCN = "假死",
+        zhTW = "假死"
+    })[GetLocale()]
+
+    hooksecurefunc(
+        "CompactUnitFrame_UpdateStatusText",
+        function(frame)
+            if not frame.optionTable.displayStatusText or not UnitIsConnected(frame.unit) then
+                return
+            end
+
+            local unit = frame.displayedUnit
+
+            if UnitIsGhost(unit) then
+                if ClassicHealPredictionSettings.showGhostStatusText then
+                    frame.statusText:SetText(GHOST)
+                    frame.statusText:Show()
+                end
+            elseif UnitIsFeignDeath(unit) then
+                if ClassicHealPredictionSettings.showFeignDeathStatusText then
+                    frame.statusText:SetText(FEIGN)
+                    frame.statusText:Show()
+                end
+            end
+        end
+    )
+end
 
 local function unitFrame_Update(self)
     do
@@ -1449,6 +1511,10 @@ local function ClassicHealPredictionFrame_Refresh()
         local r, g, b, a = unpack(ClassicHealPredictionSettings.colors[colorSwatch.index])
         colorSwatch:GetNormalTexture():SetVertexColor(r, g, b, a)
     end
+
+    checkBox3:SetChecked(ClassicHealPredictionSettings.showGhostStatusText)
+
+    checkBox4:SetChecked(ClassicHealPredictionSettings.showFeignDeathStatusText)
 end
 
 local function ClassicHealPredictionFrame_OnEvent(self, event)
@@ -1835,7 +1901,7 @@ local function ClassicHealPredictionFrame_OnLoad(self)
     checkBox2 = CreateFrame("CheckButton", checkBoxName2, self, "OptionsCheckButtonTemplate")
     checkBox2:SetPoint("TOPLEFT", sliderCheckBox4, "BOTTOMLEFT", 0, -50)
     checkBox2.Text = _G[checkBoxName2 .. "Text"]
-    checkBox2.Text:SetText("Show mana cost prediction")
+    checkBox2.Text:SetText("Show my mana cost prediction in the player unit frame")
     checkBox2.Text:SetTextColor(1, 1, 1)
 
     checkBox2:SetScript(
@@ -1922,6 +1988,34 @@ local function ClassicHealPredictionFrame_OnLoad(self)
             tappend(colorSwatches, x)
         end
     end
+
+    local checkBoxName3 = format("ClassicHealPredictionCheckbox%d", #checkBoxes + 2)
+    checkBox3 = CreateFrame("CheckButton", checkBoxName3, self, "OptionsCheckButtonTemplate")
+    checkBox3:SetPoint("TOPLEFT", checkBox2, "BOTTOMLEFT", 0, 0)
+    checkBox3.Text = _G[checkBoxName3 .. "Text"]
+    checkBox3.Text:SetText('Show "Ghost" instead of "Dead" in raid frames if the spirit was released')
+    checkBox3.Text:SetTextColor(1, 1, 1)
+
+    checkBox3:SetScript(
+        "OnClick",
+        function(self)
+            ClassicHealPredictionSettings.showGhostStatusText = self:GetChecked()
+        end
+    )
+
+    local checkBoxName4 = format("ClassicHealPredictionCheckbox%d", #checkBoxes + 3)
+    checkBox4 = CreateFrame("CheckButton", checkBoxName4, self, "OptionsCheckButtonTemplate")
+    checkBox4:SetPoint("TOPLEFT", checkBox3, "BOTTOMLEFT", 0, 0)
+    checkBox4.Text = _G[checkBoxName4 .. "Text"]
+    checkBox4.Text:SetText('Show "Feign" instead of "Dead" in raid frames if someone is feigning death')
+    checkBox4.Text:SetTextColor(1, 1, 1)
+
+    checkBox4:SetScript(
+        "OnClick",
+        function(self)
+            ClassicHealPredictionSettings.showFeignDeathStatusText = self:GetChecked()
+        end
+    )
 
     self.name = ADDON_NAME
     self.default = ClassicHealPredictionFrame_Default
