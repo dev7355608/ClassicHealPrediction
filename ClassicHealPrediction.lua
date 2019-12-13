@@ -934,30 +934,6 @@ hooksecurefunc(
     end
 )
 
-local function UpdateHealPredictionAll()
-    for _, unitFrames in pairs(guidToUnitFrame) do
-        if unitFrames then
-            for unitFrame in pairs(unitFrames) do
-                defer_UnitFrameHealPredictionBars_Update(unitFrame)
-            end
-        end
-    end
-
-    for _, compactUnitFrames in pairs(guidToCompactUnitFrame) do
-        if compactUnitFrames then
-            for compactUnitFrame in pairs(compactUnitFrames) do
-                defer_CompactUnitFrame_UpdateHealPrediction(compactUnitFrame)
-            end
-        end
-    end
-
-    for _, namePlateFrame in pairs(guidToNameplateFrame) do
-        if namePlateFrame then
-            defer_CompactUnitFrame_UpdateHealPrediction(namePlateFrame)
-        end
-    end
-end
-
 local function UpdateHealPrediction(...)
     for j = 1, select("#", ...) do
         local unitGUID = select(j, ...)
@@ -1418,6 +1394,29 @@ do
     end
 end
 
+local function updateAllFrames()
+    for _, unitFrames in pairs(guidToUnitFrame) do
+        if unitFrames then
+            for unitFrame in pairs(unitFrames) do
+                local isParty = unitFrame:GetID() ~= 0
+                UnitFrame_Update(unitFrame, isParty)
+            end
+        end
+    end
+
+    for _, compactUnitFrames in pairs(guidToCompactUnitFrame) do
+        if compactUnitFrames then
+            for compactUnitFrame in pairs(compactUnitFrames) do
+                CompactUnitFrame_UpdateAll(compactUnitFrame)
+            end
+        end
+    end
+
+    for _, namePlateFrame in pairs(guidToNameplateFrame) do
+        CompactUnitFrame_UpdateAll(namePlateFrame)
+    end
+end
+
 local function ClassicHealPredictionFrame_Refresh()
     if not loadedSettings or not loadedFrame then
         return
@@ -1537,6 +1536,8 @@ local function ClassicHealPredictionFrame_OnEvent(self, event)
 
         loadedSettings = true
 
+        updateAllFrames()
+
         self:UnregisterEvent("ADDON_LOADED")
     end
 end
@@ -1554,6 +1555,8 @@ local function ClassicHealPredictionFrame_Default()
 
     ClassicHealPredictionSettings["version"] = ADDON_VERSION
     _G.ClassicHealPredictionSettings["version"] = ADDON_VERSION
+
+    updateAllFrames()
 end
 
 _G.ClassicHealPredictionFrame_Default = ClassicHealPredictionFrame_Default
@@ -1565,7 +1568,7 @@ local function ClassicHealPredictionFrame_Okay()
         _G.ClassicHealPredictionSettings[k] = deepcopy(v)
     end
 
-    UpdateHealPredictionAll()
+    updateAllFrames()
 end
 
 _G.ClassicHealPredictionFrame_Okay = ClassicHealPredictionFrame_Okay
@@ -1576,6 +1579,8 @@ local function ClassicHealPredictionFrame_Cancel()
     for k, v in pairs(_G.ClassicHealPredictionSettings) do
         ClassicHealPredictionSettings[k] = deepcopy(v)
     end
+
+    updateAllFrames()
 end
 
 _G.ClassicHealPredictionFrame_Cancel = ClassicHealPredictionFrame_Cancel
@@ -1701,6 +1706,8 @@ local function ClassicHealPredictionFrame_OnLoad(self)
 
                     ClassicHealPredictionSettings.otherFilter = toggleValue(ClassicHealPredictionSettings.otherFilter, checkBoxes[1]:GetChecked())
                 end
+
+                updateAllFrames()
             end
         )
 
@@ -1729,6 +1736,8 @@ local function ClassicHealPredictionFrame_OnLoad(self)
         function(self, event)
             self.Text:SetText(format("%.1f", event))
             ClassicHealPredictionSettings.otherDelta = toggleValue(event, ClassicHealPredictionSettings.otherDelta >= 0)
+
+            updateAllFrames()
         end
     )
 
@@ -1747,6 +1756,8 @@ local function ClassicHealPredictionFrame_OnLoad(self)
 
             slider:SetEnabled(self:GetChecked())
             ClassicHealPredictionSettings.otherDelta = toggleValue(ClassicHealPredictionSettings.otherDelta, self:GetChecked())
+
+            updateAllFrames()
         end
     )
 
@@ -1778,6 +1789,8 @@ local function ClassicHealPredictionFrame_OnLoad(self)
         function(self, event)
             self.Text:SetText(format("%d", event))
             ClassicHealPredictionSettings.overhealThreshold = toggleValue(event / 100, ClassicHealPredictionSettings.overhealThreshold >= 0)
+
+            updateAllFrames()
         end
     )
 
@@ -1796,6 +1809,8 @@ local function ClassicHealPredictionFrame_OnLoad(self)
 
             slider2:SetEnabled(self:GetChecked())
             ClassicHealPredictionSettings.overhealThreshold = toggleValue(ClassicHealPredictionSettings.overhealThreshold, self:GetChecked())
+
+            updateAllFrames()
         end
     )
 
@@ -1827,6 +1842,8 @@ local function ClassicHealPredictionFrame_OnLoad(self)
         function(self, event)
             self.Text:SetText(format("%d", event))
             ClassicHealPredictionSettings.raidFramesMaxOverflow = toggleValue(event / 100, ClassicHealPredictionSettings.raidFramesMaxOverflow >= 0)
+
+            updateAllFrames()
         end
     )
 
@@ -1845,6 +1862,8 @@ local function ClassicHealPredictionFrame_OnLoad(self)
 
             slider3:SetEnabled(self:GetChecked())
             ClassicHealPredictionSettings.raidFramesMaxOverflow = toggleValue(ClassicHealPredictionSettings.raidFramesMaxOverflow, self:GetChecked())
+
+            updateAllFrames()
         end
     )
 
@@ -1876,6 +1895,8 @@ local function ClassicHealPredictionFrame_OnLoad(self)
         function(self, event)
             self.Text:SetText(format("%d", event))
             ClassicHealPredictionSettings.unitFramesMaxOverflow = toggleValue(event / 100, ClassicHealPredictionSettings.unitFramesMaxOverflow >= 0)
+
+            updateAllFrames()
         end
     )
 
@@ -1894,6 +1915,8 @@ local function ClassicHealPredictionFrame_OnLoad(self)
 
             slider4:SetEnabled(self:GetChecked())
             ClassicHealPredictionSettings.unitFramesMaxOverflow = toggleValue(ClassicHealPredictionSettings.unitFramesMaxOverflow, self:GetChecked())
+
+            updateAllFrames()
         end
     )
 
@@ -1908,6 +1931,8 @@ local function ClassicHealPredictionFrame_OnLoad(self)
         "OnClick",
         function(self)
             ClassicHealPredictionSettings.showManaCostPrediction = self:GetChecked()
+
+            updateAllFrames()
         end
     )
 
@@ -1956,6 +1981,8 @@ local function ClassicHealPredictionFrame_OnLoad(self)
 
                 colorSwatch:GetNormalTexture():SetVertexColor(newR, newG, newB, newA)
                 ClassicHealPredictionSettings.colors[colorSwatch.index] = {gradient(newR, newG, newB, newA)}
+
+                updateAllFrames()
             end
 
             colorSwatch:SetScript(
@@ -2000,6 +2027,8 @@ local function ClassicHealPredictionFrame_OnLoad(self)
         "OnClick",
         function(self)
             ClassicHealPredictionSettings.showGhostStatusText = self:GetChecked()
+
+            updateAllFrames()
         end
     )
 
@@ -2014,6 +2043,8 @@ local function ClassicHealPredictionFrame_OnLoad(self)
         "OnClick",
         function(self)
             ClassicHealPredictionSettings.showFeignDeathStatusText = self:GetChecked()
+
+            updateAllFrames()
         end
     )
 
