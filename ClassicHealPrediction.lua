@@ -254,7 +254,8 @@ local ClassicHealPredictionDefaultSettings = {
     raidFramesMaxOverflow = toggleValue(0.05, true),
     unitFramesMaxOverflow = toggleValue(0.0, true),
     showGhostStatusText = true,
-    showFeignDeathStatusText = true
+    showFeignDeathStatusText = true,
+    showAnimatedLossBar = false
 }
 local ClassicHealPredictionSettings = ClassicHealPredictionDefaultSettings
 
@@ -891,12 +892,8 @@ hooksecurefunc(
     "UnitFrame_SetUnit",
     function(self, unit, healthbar, manabar)
         if self.unit ~= unit then
-            if GetCVarBool("predictedHealth") and self.frequentUpdates and self.AnimatedLossBar then
-                self:SetScript("OnUpdate", UnitFrameHealthBar_OnUpdate)
-                self:UnregisterEvent("UNIT_HEALTH")
-            else
-                self:RegisterUnitEvent("UNIT_HEALTH", self.unit)
-                self:SetScript("OnUpdate", nil)
+            if not healthbar:GetScript("OnUpdate") then
+                healthbar:RegisterUnitEvent("UNIT_HEALTH", unit)
             end
         end
 
@@ -959,7 +956,7 @@ hooksecurefunc(
     "UnitFrameHealthBar_OnEvent",
     function(self, event)
         if event == "VARIABLES_LOADED" then
-            if GetCVarBool("predictedHealth") and self.frequentUpdates and self.AnimatedLossBar then
+            if ClassicHealPredictionSettings.showAnimatedLossBar and self.frequentUpdates and self.AnimatedLossBar then
                 self:SetScript("OnUpdate", UnitFrameHealthBar_OnUpdate)
                 self:UnregisterEvent("UNIT_HEALTH")
             else
@@ -1234,6 +1231,8 @@ do
             textures[name] = createTexture(getChild(frame, unpack(depth)), name, layer, subLayer)
         end
 
+        frame.healthbar:SetScript("OnEvent", UnitFrameHealthBar_OnEvent)
+
         frame._CHP_healthBar = frame.healthbar
 
         frame.myManaCostPredictionBar = textures["$parentManaCostPredictionBar"]
@@ -1345,6 +1344,7 @@ do
     if not PlayerFrame.PlayerFrameHealthBarAnimatedLoss then
         PlayerFrame.PlayerFrameHealthBarAnimatedLoss = Mixin(CreateFrame("StatusBar", nil, PlayerFrame), AnimatedHealthLossMixin)
         PlayerFrame.PlayerFrameHealthBarAnimatedLoss:SetStatusBarTexture("Interface\\TargetingFrame\\UI-StatusBar")
+        PlayerFrame.PlayerFrameHealthBarAnimatedLoss:SetFrameLevel(PlayerFrame.healthbar:GetFrameLevel() - 1)
         PlayerFrame.PlayerFrameHealthBarAnimatedLoss:OnLoad()
         PlayerFrame.PlayerFrameHealthBarAnimatedLoss:SetUnitHealthBar(PlayerFrame.unit, PlayerFrame.healthbar)
         PlayerFrame.PlayerFrameHealthBarAnimatedLoss:Hide()
@@ -1581,6 +1581,10 @@ local function ClassicHealPredictionFrame_OnEvent(self, event, arg1)
         loadedSettings = true
 
         self:UnregisterEvent("ADDON_LOADED")
+    elseif event == "VARIABLES_LOADED" then
+        SetCVar("predictedHealth", 0)
+
+        self:UnregisterEvent("VARIABLES_LOADED")
     elseif event == "PLAYER_ENTERING_WORLD" then
         updateAllFrames()
 
@@ -1633,6 +1637,10 @@ _G.ClassicHealPredictionFrame_Cancel = ClassicHealPredictionFrame_Cancel
 
 local function ClassicHealPredictionFrame_OnLoad(self)
     self:RegisterEvent("ADDON_LOADED")
+
+    SetCVar("predictedHealth", 0)
+
+    self:RegisterEvent("VARIABLES_LOADED")
 
     local frame = CreateFrame("Frame")
     frame:RegisterEvent("NAME_PLATE_UNIT_ADDED")
