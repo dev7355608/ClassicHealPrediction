@@ -3,11 +3,7 @@ if WOW_PROJECT_ID ~= WOW_PROJECT_CLASSIC then
 end
 
 local ADDON_NAME = ...
-local ADDON_VERSION = GetAddOnMetadata(ADDON_NAME, "Version")
-
-if string.sub(ADDON_VERSION, 1, 1) == "v" then
-    ADDON_VERSION = string.sub(ADDON_VERSION, 2)
-end
+local ADDON_VERSION = string.match(GetAddOnMetadata(ADDON_NAME, "Version"), "^v(%d+%.%d+%.%d+)$")
 
 local HealComm = LibStub("LibHealComm-4.0")
 local HealComm_OVERTIME_HEALS = bit.bor(HealComm.HOT_HEALS, HealComm.CHANNEL_HEALS)
@@ -25,7 +21,6 @@ local unpack = unpack
 local next = next
 
 local GetTime = GetTime
-local SetCVar = SetCVar
 local C_Timer = C_Timer
 local C_NamePlate = C_NamePlate
 
@@ -49,6 +44,12 @@ local function UnitCastingInfo(unit)
 end
 
 _G.UnitCastingInfo = UnitCastingInfo
+
+local function UnitGetTotalAbsorbs(unit)
+    return nil
+end
+
+_G.UnitGetTotalAbsorbs = UnitGetTotalAbsorbs
 
 local CompactUnitFrameUtil_UpdateFillBar = CompactUnitFrameUtil_UpdateFillBar
 local UnitFrameUtil_UpdateFillBar = UnitFrameUtil_UpdateFillBar
@@ -745,6 +746,13 @@ local function UnitFrameHealPredictionBars_UpdateSize(self)
 end
 
 hooksecurefunc(
+    "CompactUnitFrame_UpdateUnitEvents",
+    function(frame)
+        frame:UnregisterEvent("UNIT_HEALTH")
+    end
+)
+
+hooksecurefunc(
     "CompactUnitFrame_OnEvent",
     function(self, event, ...)
         if event == self.updateAllEvent and (not self.updateAllFilter or self.updateAllFilter(self, event, ...)) then
@@ -754,9 +762,7 @@ hooksecurefunc(
         local unit = ...
 
         if unit == self.unit or unit == self.displayedUnit then
-            if event == "UNIT_MAXHEALTH" then
-                defer_CompactUnitFrame_UpdateHealPrediction(self)
-            elseif event == "UNIT_HEALTH" or event == "UNIT_HEALTH_FREQUENT" then
+            if event == "UNIT_HEALTH_FREQUENT" or event == "UNIT_HEALTH" or event == "UNIT_MAXHEALTH" then
                 defer_CompactUnitFrame_UpdateHealPrediction(self)
             end
         end
@@ -881,7 +887,22 @@ local function unitFrame_Update(self)
     UnitFrameManaCostPredictionBars_Update(self)
 end
 
-hooksecurefunc("UnitFrame_SetUnit", unitFrame_Update)
+hooksecurefunc(
+    "UnitFrame_SetUnit",
+    function(self, unit, healthbar, manabar)
+        if self.unit ~= unit then
+            if GetCVarBool("predictedHealth") and self.frequentUpdates and self.AnimatedLossBar then
+                self:SetScript("OnUpdate", UnitFrameHealthBar_OnUpdate)
+                self:UnregisterEvent("UNIT_HEALTH")
+            else
+                self:RegisterUnitEvent("UNIT_HEALTH", self.unit)
+                self:SetScript("OnUpdate", nil)
+            end
+        end
+
+        unitFrame_Update(self)
+    end
+)
 
 hooksecurefunc("UnitFrame_Update", unitFrame_Update)
 
@@ -931,6 +952,21 @@ hooksecurefunc(
         end
 
         defer_UnitFrameHealPredictionBars_Update(statusbar:GetParent())
+    end
+)
+
+hooksecurefunc(
+    "UnitFrameHealthBar_OnEvent",
+    function(self, event)
+        if event == "VARIABLES_LOADED" then
+            if GetCVarBool("predictedHealth") and self.frequentUpdates and self.AnimatedLossBar then
+                self:SetScript("OnUpdate", UnitFrameHealthBar_OnUpdate)
+                self:UnregisterEvent("UNIT_HEALTH")
+            else
+                self:RegisterUnitEvent("UNIT_HEALTH", self.unit)
+                self:SetScript("OnUpdate", nil)
+            end
+        end
     end
 )
 
@@ -1306,6 +1342,14 @@ do
         }
     )
 
+    if not PlayerFrame.PlayerFrameHealthBarAnimatedLoss then
+        PlayerFrame.PlayerFrameHealthBarAnimatedLoss = Mixin(CreateFrame("StatusBar", nil, PlayerFrame), AnimatedHealthLossMixin)
+        PlayerFrame.PlayerFrameHealthBarAnimatedLoss:SetStatusBarTexture("Interface\\TargetingFrame\\UI-StatusBar")
+        PlayerFrame.PlayerFrameHealthBarAnimatedLoss:OnLoad()
+        PlayerFrame.PlayerFrameHealthBarAnimatedLoss:SetUnitHealthBar(PlayerFrame.unit, PlayerFrame.healthbar)
+        PlayerFrame.PlayerFrameHealthBarAnimatedLoss:Hide()
+    end
+
     initUnitFrame(
         PetFrame,
         {
@@ -1516,8 +1560,8 @@ local function ClassicHealPredictionFrame_Refresh()
     checkBox4:SetChecked(ClassicHealPredictionSettings.showFeignDeathStatusText)
 end
 
-local function ClassicHealPredictionFrame_OnEvent(self, event)
-    if event == "ADDON_LOADED" then
+local function ClassicHealPredictionFrame_OnEvent(self, event, arg1)
+    if event == "ADDON_LOADED" and arg1 == ADDON_NAME then
         if not _G.ClassicHealPredictionSettings then
             _G.ClassicHealPredictionSettings = {}
         end
@@ -1532,13 +1576,15 @@ local function ClassicHealPredictionFrame_OnEvent(self, event)
             ClassicHealPredictionSettings[k] = deepcopy(v)
         end
 
-        SetCVar("predictedHealth", 1)
+        self:RegisterEvent("PLAYER_ENTERING_WORLD")
 
         loadedSettings = true
 
+        self:UnregisterEvent("ADDON_LOADED")
+    elseif event == "PLAYER_ENTERING_WORLD" then
         updateAllFrames()
 
-        self:UnregisterEvent("ADDON_LOADED")
+        self:UnregisterEvent("PLAYER_ENTERING_WORLD")
     end
 end
 
@@ -1613,7 +1659,7 @@ local function ClassicHealPredictionFrame_OnLoad(self)
     local version = self:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     version:SetPoint("BOTTOMLEFT", title, "BOTTOMRIGHT", 5, 0)
     version:SetTextColor(0.5, 0.5, 0.5)
-    version:SetText("v" .. ADDON_VERSION)
+    version:SetText(ADDON_VERSION and "v" .. ADDON_VERSION)
 
     checkBoxes = {}
 
