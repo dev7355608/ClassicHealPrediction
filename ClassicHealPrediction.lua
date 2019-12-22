@@ -737,7 +737,9 @@ end
 hooksecurefunc(
     "CompactUnitFrame_UpdateUnitEvents",
     function(frame)
-        frame:UnregisterEvent("UNIT_HEALTH")
+        if not frame:IsForbidden() then
+            frame:UnregisterEvent("UNIT_HEALTH")
+        end
     end
 )
 
