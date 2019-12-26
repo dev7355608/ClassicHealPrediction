@@ -243,7 +243,8 @@ local ClassicHealPredictionDefaultSettings = {
     unitFramesMaxOverflow = toggleValue(0.0, true),
     showGhostStatusText = true,
     showFeignDeathStatusText = true,
-    showAnimatedLossBar = false
+    showAnimatedLossBar = false,
+    showFlaggedMembersRightSide = false
 }
 local ClassicHealPredictionSettings = ClassicHealPredictionDefaultSettings
 
@@ -326,6 +327,7 @@ local checkBoxes
 local checkBox2
 local checkBox3
 local checkBox4
+local checkBox5
 local slider
 local slider2
 local slider3
@@ -849,6 +851,45 @@ do
         end
     )
 end
+
+hooksecurefunc(
+    "CompactRaidFrameContainer_LayoutFrames",
+    function(self)
+        if not ClassicHealPredictionSettings.showFlaggedMembersRightSide then
+            return
+        end
+
+        for i = 1, #self.flowFrames do
+            if type(self.flowFrames[i]) == "table" and self.flowFrames[i].unusedFunc then
+                self.flowFrames[i]:unusedFunc()
+            end
+        end
+
+        FlowContainer_RemoveAllObjects(self)
+        FlowContainer_PauseUpdates(self)
+
+        if self.groupMode == "discrete" then
+            CompactRaidFrameContainer_AddGroups(self)
+        elseif self.groupMode == "flush" then
+            CompactRaidFrameContainer_AddPlayers(self)
+        else
+            error("Unknown group mode")
+        end
+
+        if self.displayPets then
+            CompactRaidFrameContainer_AddPets(self)
+        end
+
+        if self.displayFlaggedMembers then
+            FlowContainer_AddLineBreak(self)
+            CompactRaidFrameContainer_AddFlaggedUnits(self)
+        end
+
+        FlowContainer_ResumeUpdates(self)
+        CompactRaidFrameContainer_UpdateBorder(self)
+        CompactRaidFrameContainer_ReleaseAllReservedFrames(self)
+    end
+)
 
 local function unitFrame_Update(self)
     do
@@ -1578,6 +1619,8 @@ local function ClassicHealPredictionFrame_Refresh()
     checkBox3:SetChecked(ClassicHealPredictionSettings.showGhostStatusText)
 
     checkBox4:SetChecked(ClassicHealPredictionSettings.showFeignDeathStatusText)
+
+    checkBox5:SetChecked(ClassicHealPredictionSettings.showFlaggedMembersRightSide)
 end
 
 local function ClassicHealPredictionFrame_OnEvent(self, event, arg1)
@@ -1681,7 +1724,7 @@ local function ClassicHealPredictionFrame_OnLoad(self)
     )
 
     local title = self:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    title:SetPoint("TOPLEFT", 20, -20)
+    title:SetPoint("TOPLEFT", 15, -15)
     title:SetText(ADDON_NAME)
 
     local version = self:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
@@ -1718,7 +1761,7 @@ local function ClassicHealPredictionFrame_OnLoad(self)
         local checkBox = CreateFrame("CheckButton", name, self, template)
 
         if i == 1 then
-            checkBox:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -15)
+            checkBox:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -10)
         else
             local anchor
 
@@ -2032,7 +2075,7 @@ local function ClassicHealPredictionFrame_OnLoad(self)
             colorSwatch.index = i
 
             if k == 1 and j == 1 then
-                colorSwatch:SetPoint("TOPRIGHT", -245, -60)
+                colorSwatch:SetPoint("TOPRIGHT", -235, -50)
             elseif k ~= 1 and j == 1 then
                 colorSwatch:SetPoint("TOPLEFT", colorSwatches[k - 1][1], "BOTTOMLEFT", 0, -8)
             else
@@ -2117,6 +2160,24 @@ local function ClassicHealPredictionFrame_OnLoad(self)
         "OnClick",
         function(self)
             ClassicHealPredictionSettings.showFeignDeathStatusText = self:GetChecked()
+
+            updateAllFrames()
+        end
+    )
+
+    local checkBoxName5 = format("ClassicHealPredictionCheckbox%d", #checkBoxes + 4)
+    checkBox5 = CreateFrame("CheckButton", checkBoxName5, self, "OptionsCheckButtonTemplate")
+    checkBox5:SetPoint("TOPLEFT", checkBox4, "BOTTOMLEFT", 0, 0)
+    checkBox5.Text = _G[checkBoxName5 .. "Text"]
+    checkBox5.Text:SetText("Show main tanks and main assists on the right side in raid frames")
+    checkBox5.Text:SetTextColor(1, 1, 1)
+
+    checkBox5:SetScript(
+        "OnClick",
+        function(self)
+            ClassicHealPredictionSettings.showFlaggedMembersRightSide = self:GetChecked()
+
+            CompactRaidFrameContainer_TryUpdate(CompactRaidFrameContainer)
 
             updateAllFrames()
         end
