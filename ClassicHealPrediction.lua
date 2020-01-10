@@ -674,36 +674,35 @@ hooksecurefunc(
     end
 )
 
-hooksecurefunc(
-    "CompactUnitFrame_UpdateAll",
-    function(frame)
-        local unit = frame.displayedUnit
+function compactUnitFrame_UpdateAll(frame)
+    local unit = frame.displayedUnit
 
-        do
-            local unitGUID = frame._CHP_unitGUID
-            local newUnitGUID = unit and UnitGUID(unit)
+    do
+        local unitGUID = frame._CHP_unitGUID
+        local newUnitGUID = unit and UnitGUID(unit)
 
-            if newUnitGUID ~= unitGUID then
-                if unitGUID then
-                    guidToCompactUnitFrame[unitGUID][frame] = nil
+        if newUnitGUID ~= unitGUID then
+            if unitGUID then
+                guidToCompactUnitFrame[unitGUID][frame] = nil
 
-                    if next(guidToCompactUnitFrame[unitGUID]) == nil then
-                        guidToCompactUnitFrame[unitGUID] = nil
-                    end
+                if next(guidToCompactUnitFrame[unitGUID]) == nil then
+                    guidToCompactUnitFrame[unitGUID] = nil
                 end
-
-                if newUnitGUID then
-                    guidToCompactUnitFrame[newUnitGUID] = guidToCompactUnitFrame[newUnitGUID] or {}
-                    guidToCompactUnitFrame[newUnitGUID][frame] = true
-                end
-
-                frame._CHP_unitGUID = newUnitGUID
             end
-        end
 
-        defer_CompactUnitFrame_UpdateHealPrediction(frame)
+            if newUnitGUID then
+                guidToCompactUnitFrame[newUnitGUID] = guidToCompactUnitFrame[newUnitGUID] or {}
+                guidToCompactUnitFrame[newUnitGUID][frame] = true
+            end
+
+            frame._CHP_unitGUID = newUnitGUID
+        end
     end
-)
+
+    defer_CompactUnitFrame_UpdateHealPrediction(frame)
+end
+
+hooksecurefunc("CompactUnitFrame_UpdateAll", compactUnitFrame_UpdateAll)
 
 hooksecurefunc("CompactUnitFrame_UpdateMaxHealth", defer_CompactUnitFrame_UpdateHealPrediction)
 
@@ -762,10 +761,17 @@ do
     )
 end
 
+local updateAllFrames
+
 hooksecurefunc(
     "CompactRaidFrameContainer_LayoutFrames",
     function(self)
         if not ClassicHealPredictionSettings.showFlaggedMembersRightSide then
+            return
+        end
+
+        if InCombatLockdown() then
+            updateAllFrames(true)
             return
         end
 
@@ -947,33 +953,55 @@ end
 
 local deferUpdateAllFrames
 
-local function updateAllFrames(tryUpdate)
-    if InCombatLockdown() then
-        deferUpdateAllFrames = {tryUpdate}
-    else
+function updateAllFrames(tryUpdate)
+    do
+        local allUnitFrames = {}
+
         for _, unitFrames in pairs(guidToUnitFrame) do
             if unitFrames then
                 for unitFrame in pairs(unitFrames) do
-                    local isParty = unitFrame:GetID() ~= 0
-                    UnitFrame_Update(unitFrame, isParty)
+                    allUnitFrames[unitFrame] = true
                 end
             end
         end
 
-        if tryUpdate then
-            CompactRaidFrameContainer_TryUpdate(CompactRaidFrameContainer)
+        for unitFrame in pairs(allUnitFrames) do
+            local isParty = unitFrame:GetID() ~= 0
+            unitFrame_Update(unitFrame, isParty)
+        end
+    end
+
+    if tryUpdate then
+        if InCombatLockdown() then
+            deferUpdateAllFrames = {tryUpdate}
         else
-            for _, compactUnitFrames in pairs(guidToCompactUnitFrame) do
-                if compactUnitFrames then
-                    for compactUnitFrame in pairs(compactUnitFrames) do
-                        CompactUnitFrame_UpdateAll(compactUnitFrame)
-                    end
-                end
+            CompactRaidFrameContainer_TryUpdate(CompactRaidFrameContainer)
+        end
+    end
+
+    local allCompactUnitFrames = {}
+
+    for _, compactUnitFrames in pairs(guidToCompactUnitFrame) do
+        if compactUnitFrames then
+            for compactUnitFrame in pairs(compactUnitFrames) do
+                allCompactUnitFrames[compactUnitFrame] = true
             end
         end
+    end
+
+    for compactUnitFrame in pairs(allCompactUnitFrames) do
+        compactUnitFrame_UpdateAll(compactUnitFrame)
+    end
+
+    do
+        local allNameplateFrames = {}
 
         for _, namePlateFrame in pairs(guidToNameplateFrame) do
-            CompactUnitFrame_UpdateAll(namePlateFrame)
+            allNameplateFrames[namePlateFrame] = namePlateFrame
+        end
+
+        for namePlateFrame in pairs(allNameplateFrames) do
+            compactUnitFrame_UpdateAll(namePlateFrame)
         end
     end
 end
