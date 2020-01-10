@@ -36,6 +36,7 @@ local UnitIsFeignDeath = UnitIsFeignDeath
 local CastingInfo = CastingInfo
 local GetSpellPowerCost = GetSpellPowerCost
 local GetSpellInfo = GetSpellInfo
+local InCombatLockdown = InCombatLockdown
 
 local CompactUnitFrameUtil_UpdateFillBar = CompactUnitFrameUtil_UpdateFillBar
 local UnitFrameUtil_UpdateFillBar = UnitFrameUtil_UpdateFillBar
@@ -361,22 +362,6 @@ local function updateHealPrediction(frame, unit, cutoff, gradient, colorPalette,
 
     local _, maxHealth = frame._CHP_healthBar:GetMinMaxValues()
     local health = frame._CHP_healthBar:GetValue()
-
-    if maxHealth <= 0 then
-        frame._CHP_myHealPrediction:Hide()
-        frame._CHP_myHealPrediction2:Hide()
-        frame._CHP_otherHealPrediction:Hide()
-        frame._CHP_otherHealPrediction2:Hide()
-        frame._CHP_totalAbsorb:Hide()
-        frame._CHP_totalAbsorbOverlay:Hide()
-        frame._CHP_healAbsorb:Hide()
-        frame._CHP_healAbsorbLeftShadow:Hide()
-        frame._CHP_healAbsorbRightShadow:Hide()
-        frame._CHP_overAbsorbGlow:Hide()
-        frame._CHP_overHealAbsorbGlow:Hide()
-        return
-    end
-
     local myIncomingHeal1, myIncomingHeal2, otherIncomingHeal1, otherIncomingHeal2 = getIncomingHeals(unit)
     local totalAbsorb = 0
     local currentHealAbsorb = 0
@@ -716,9 +701,7 @@ hooksecurefunc(
             end
         end
 
-        if UnitExists(unit) then
-            defer_CompactUnitFrame_UpdateHealPrediction(frame)
-        end
+        defer_CompactUnitFrame_UpdateHealPrediction(frame)
     end
 )
 
@@ -962,25 +945,75 @@ local function UpdateHealPrediction(...)
     end
 end
 
-local function ClassicHealPrediction_OnEvent(event, arg1)
-    local namePlateUnitToken = arg1
+local deferUpdateAllFrames
 
-    if not UnitCanAssist("player", namePlateUnitToken) then
-        return
-    end
-
-    local unitGUID = UnitGUID(namePlateUnitToken)
-
-    if event == "NAME_PLATE_UNIT_ADDED" then
-        local namePlate = C_NamePlate.GetNamePlateForUnit(namePlateUnitToken)
-        local namePlateFrame = namePlate and namePlate.UnitFrame
-        guidToNameplateFrame[unitGUID] = namePlateFrame
-
-        if namePlateFrame then
-            defer_CompactUnitFrame_UpdateHealPrediction(namePlateFrame)
+local function updateAllFrames(tryUpdate)
+    if InCombatLockdown() then
+        deferUpdateAllFrames = {tryUpdate}
+    else
+        for _, unitFrames in pairs(guidToUnitFrame) do
+            if unitFrames then
+                for unitFrame in pairs(unitFrames) do
+                    local isParty = unitFrame:GetID() ~= 0
+                    UnitFrame_Update(unitFrame, isParty)
+                end
+            end
         end
-    elseif event == "NAME_PLATE_UNIT_REMOVED" then
-        guidToNameplateFrame[unitGUID] = nil
+
+        if tryUpdate then
+            CompactRaidFrameContainer_TryUpdate(CompactRaidFrameContainer)
+        else
+            for _, compactUnitFrames in pairs(guidToCompactUnitFrame) do
+                if compactUnitFrames then
+                    for compactUnitFrame in pairs(compactUnitFrames) do
+                        CompactUnitFrame_UpdateAll(compactUnitFrame)
+                    end
+                end
+            end
+        end
+
+        for _, namePlateFrame in pairs(guidToNameplateFrame) do
+            CompactUnitFrame_UpdateAll(namePlateFrame)
+        end
+    end
+end
+
+local function ClassicHealPrediction_OnEvent(event, arg1)
+    if event == "PLAYER_REGEN_ENABLED" then
+        if deferUpdateAllFrames then
+            updateAllFrames(unpack(deferUpdateAllFrames))
+            deferUpdateAllFrames = nil
+        end
+    elseif event == "GROUP_ROSTER_UPDATE" then
+        if InCombatLockdown() then
+            for _, compactUnitFrames in pairs(guidToCompactUnitFrame) do
+                if compactUnitFrames then
+                    for frame in pairs(compactUnitFrames) do
+                        defer_CompactUnitFrame_UpdateHealPrediction(frame)
+                    end
+                end
+            end
+        end
+    else
+        local namePlateUnitToken = arg1
+
+        if not UnitCanAssist("player", namePlateUnitToken) then
+            return
+        end
+
+        local unitGUID = UnitGUID(namePlateUnitToken)
+
+        if event == "NAME_PLATE_UNIT_ADDED" then
+            local namePlate = C_NamePlate.GetNamePlateForUnit(namePlateUnitToken)
+            local namePlateFrame = namePlate and namePlate.UnitFrame
+            guidToNameplateFrame[unitGUID] = namePlateFrame
+
+            if namePlateFrame then
+                defer_CompactUnitFrame_UpdateHealPrediction(namePlateFrame)
+            end
+        elseif event == "NAME_PLATE_UNIT_REMOVED" then
+            guidToNameplateFrame[unitGUID] = nil
+        end
     end
 end
 
@@ -1426,29 +1459,6 @@ do
     end
 end
 
-local function updateAllFrames()
-    for _, unitFrames in pairs(guidToUnitFrame) do
-        if unitFrames then
-            for unitFrame in pairs(unitFrames) do
-                local isParty = unitFrame:GetID() ~= 0
-                UnitFrame_Update(unitFrame, isParty)
-            end
-        end
-    end
-
-    for _, compactUnitFrames in pairs(guidToCompactUnitFrame) do
-        if compactUnitFrames then
-            for compactUnitFrame in pairs(compactUnitFrames) do
-                CompactUnitFrame_UpdateAll(compactUnitFrame)
-            end
-        end
-    end
-
-    for _, namePlateFrame in pairs(guidToNameplateFrame) do
-        CompactUnitFrame_UpdateAll(namePlateFrame)
-    end
-end
-
 local function ClassicHealPredictionFrame_Refresh()
     if not loadedSettings or not loadedFrame then
         return
@@ -1635,6 +1645,8 @@ local function ClassicHealPredictionFrame_OnLoad(self)
     local frame = CreateFrame("Frame")
     frame:RegisterEvent("NAME_PLATE_UNIT_ADDED")
     frame:RegisterEvent("NAME_PLATE_UNIT_REMOVED")
+    frame:RegisterEvent("PLAYER_REGEN_ENABLED")
+    frame:RegisterEvent("GROUP_ROSTER_UPDATE")
 
     frame:SetScript(
         "OnEvent",
@@ -2104,9 +2116,7 @@ local function ClassicHealPredictionFrame_OnLoad(self)
         function(self)
             ClassicHealPredictionSettings.showFlaggedMembersRightSide = self:GetChecked()
 
-            CompactRaidFrameContainer_TryUpdate(CompactRaidFrameContainer)
-
-            updateAllFrames()
+            updateAllFrames(true)
         end
     )
 
