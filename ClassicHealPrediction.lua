@@ -22,8 +22,6 @@ local unpack = unpack
 local next = next
 
 local GetTime = GetTime
-local C_Timer = C_Timer
-local C_NamePlate = C_NamePlate
 
 local UnitGUID = UnitGUID
 local UnitExists = UnitExists
@@ -37,14 +35,6 @@ local CastingInfo = CastingInfo
 local GetSpellPowerCost = GetSpellPowerCost
 local GetSpellInfo = GetSpellInfo
 local InCombatLockdown = InCombatLockdown
-
-local CompactUnitFrameUtil_UpdateFillBar = CompactUnitFrameUtil_UpdateFillBar
-local UnitFrameUtil_UpdateFillBar = UnitFrameUtil_UpdateFillBar
-local UnitFrameUtil_UpdateManaFillBar = UnitFrameUtil_UpdateManaFillBar
-local UnitFrameManaBar_Update = UnitFrameManaBar_Update
-
-local MAX_PARTY_MEMBERS = MAX_PARTY_MEMBERS
-local MAX_RAID_MEMBERS = MAX_RAID_MEMBERS
 
 local PlayerFrame = PlayerFrame
 local PetFrame = PetFrame
@@ -596,7 +586,7 @@ local function defer_UnitFrameHealPredictionBars_Update(frame)
     end
 end
 
-local function UnitFrameManaCostPredictionBars_Update(frame, isStarting, startTime, endTime, spellID)
+local function unitFrameManaCostPredictionBars_Update(frame, isStarting, startTime, endTime, spellID)
     if frame.unit ~= "player" or not frame.manabar or not frame.myManaCostPredictionBar then
         return
     end
@@ -637,8 +627,6 @@ local function UnitFrameManaCostPredictionBars_Update(frame, isStarting, startTi
     UnitFrameManaBar_Update(frame.manabar, "player")
     UnitFrameUtil_UpdateManaFillBar(frame, manaBarTexture, frame.myManaCostPredictionBar, cost)
 end
-
-_G.UnitFrameManaCostPredictionBars_Update = UnitFrameManaCostPredictionBars_Update
 
 local function UnitFrameHealPredictionBars_UpdateSize(self)
     if not self._CHP_myHealPrediction or not self._CHP_otherHealPrediction then
@@ -740,21 +728,19 @@ do
     hooksecurefunc(
         "CompactUnitFrame_UpdateStatusText",
         function(frame)
-            if not frame.optionTable.displayStatusText or not UnitIsConnected(frame.unit) then
+            if not frame.statusText or not frame.optionTable.displayStatusText or not UnitIsConnected(frame.unit) then
                 return
             end
 
-            local unit = frame.displayedUnit
+            local displayedUnit = frame.displayedUnit
 
-            if UnitIsGhost(unit) then
+            if UnitIsGhost(displayedUnit) then
                 if ClassicHealPredictionSettings.showGhostStatusText then
                     frame.statusText:SetText(GHOST)
-                    frame.statusText:Show()
                 end
-            elseif UnitIsFeignDeath(unit) then
+            elseif UnitIsFeignDeath(displayedUnit) then
                 if ClassicHealPredictionSettings.showFeignDeathStatusText then
                     frame.statusText:SetText(FEIGN)
-                    frame.statusText:Show()
                 end
             end
         end
@@ -832,16 +818,14 @@ local function unitFrame_Update(self)
     end
 
     defer_UnitFrameHealPredictionBars_Update(self)
-    UnitFrameManaCostPredictionBars_Update(self)
+    unitFrameManaCostPredictionBars_Update(self)
 end
 
 hooksecurefunc(
     "UnitFrame_SetUnit",
     function(self, unit, healthbar, manabar)
-        if self.unit ~= unit then
-            if not healthbar:GetScript("OnUpdate") then
-                healthbar:RegisterUnitEvent("UNIT_HEALTH", unit)
-            end
+        if not healthbar:GetScript("OnUpdate") then
+            healthbar:RegisterUnitEvent("UNIT_HEALTH", unit)
         end
 
         unitFrame_Update(self)
@@ -857,7 +841,7 @@ local function unitFrame_OnEvent(self, event, unit)
         elseif event == "UNIT_SPELLCAST_START" or event == "UNIT_SPELLCAST_STOP" or event == "UNIT_SPELLCAST_FAILED" or event == "UNIT_SPELLCAST_SUCCEEDED" then
             assert(unit == "player")
             local name, text, texture, startTime, endTime, isTradeSkill, castID, notInterruptible, spellID = CastingInfo()
-            UnitFrameManaCostPredictionBars_Update(self, event == "UNIT_SPELLCAST_START", startTime, endTime, spellID)
+            unitFrameManaCostPredictionBars_Update(self, event == "UNIT_SPELLCAST_START", startTime, endTime, spellID)
         end
     end
 end
@@ -1152,7 +1136,6 @@ do
         function(self, unit, frameType)
             if not compactRaidFrameReservation_GetFrame then
                 local info = frameCreationSpecifiers[frameType]
-
                 local mapping
 
                 if info.mapping then
@@ -1162,7 +1145,6 @@ do
                 end
 
                 local frame = self.frameReservations[frameType].reservations[mapping]
-
                 info.setUpFunc(frame)
             end
         end
