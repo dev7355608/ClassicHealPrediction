@@ -24,7 +24,6 @@ local next = next
 local GetTime = GetTime
 
 local UnitGUID = UnitGUID
-local UnitExists = UnitExists
 local UnitHealth = UnitHealth
 local UnitHealthMax = UnitHealthMax
 local UnitCanAssist = UnitCanAssist
@@ -46,29 +45,6 @@ local PartyMemberFramePetFrame = {}
 for i = 1, MAX_PARTY_MEMBERS do
     PartyMemberFrame[i] = _G["PartyMemberFrame" .. i]
     PartyMemberFramePetFrame[i] = _G["PartyMemberFrame" .. i .. "PetFrame"]
-end
-
-local PARTY = {}
-local PARTYPET = {}
-
-for i = 1, MAX_PARTY_MEMBERS do
-    tinsert(PARTY, "party" .. i)
-    tinsert(PARTYPET, "partypet" .. i)
-end
-
-PARTY[0] = "player"
-PARTYPET[0] = "pet"
-
-local RAID = {}
-local RAIDPET = {}
-local RAIDTARGET = {}
-local RAIDTARGETTARGET = {}
-
-for i = 1, MAX_RAID_MEMBERS do
-    tinsert(RAID, "raid" .. i)
-    tinsert(RAIDPET, "raidpet" .. i)
-    tinsert(RAIDTARGET, "raid" .. i .. "target")
-    tinsert(RAIDTARGETTARGET, "raid" .. i .. "targettarget")
 end
 
 local function toggleValue(value, bool)
@@ -146,11 +122,13 @@ local function hslToRgb(h, s, l, a)
         end
 
         local q
+
         if l < 0.5 then
             q = l * (1 + s)
         else
             q = l + s - l * s
         end
+
         local p = 2 * l - q
 
         r = f(p, q, h + 1 / 3)
@@ -662,7 +640,7 @@ hooksecurefunc(
     end
 )
 
-function compactUnitFrame_UpdateAll(frame)
+local function compactUnitFrame_UpdateAll(frame)
     local unit = frame.displayedUnit
 
     do
