@@ -210,7 +210,6 @@ local ClassicHealPredictionDefaultSettings = {
     unitFramesMaxOverflow = toggleValue(0.0, true),
     showGhostStatusText = true,
     showFeignDeathStatusText = true,
-    showAnimatedLossBar = false,
     showFlaggedMembersRightSide = false
 }
 local ClassicHealPredictionSettings = ClassicHealPredictionDefaultSettings
@@ -864,21 +863,6 @@ hooksecurefunc(
     end
 )
 
-hooksecurefunc(
-    "UnitFrameHealthBar_OnEvent",
-    function(self, event)
-        if event == "VARIABLES_LOADED" then
-            if ClassicHealPredictionSettings.showAnimatedLossBar and self.frequentUpdates and self.AnimatedLossBar then
-                self:SetScript("OnUpdate", UnitFrameHealthBar_OnUpdate)
-                self:UnregisterEvent("UNIT_HEALTH")
-            else
-                self:RegisterUnitEvent("UNIT_HEALTH", self.unit)
-                self:SetScript("OnUpdate", nil)
-            end
-        end
-    end
-)
-
 local function UpdateHealPrediction(...)
     for j = 1, select("#", ...) do
         local unitGUID = select(j, ...)
@@ -1213,8 +1197,6 @@ do
             textures[name] = createTexture(getChild(frame, unpack(depth)), name, layer, subLayer)
         end
 
-        frame.healthbar:SetScript("OnEvent", UnitFrameHealthBar_OnEvent)
-
         frame._CHP_healthBar = frame.healthbar
 
         frame.myManaCostPredictionBar = textures["$parentManaCostPredictionBar"]
@@ -1329,35 +1311,6 @@ do
             {{1, 1}, "$parentOverHealAbsorbGlow", "ARTWORK", 1}
         }
     )
-
-    if not PlayerFrame.PlayerFrameHealthBarAnimatedLoss then
-        PlayerFrame.PlayerFrameHealthBarAnimatedLoss = Mixin(CreateFrame("StatusBar", nil, PlayerFrame), AnimatedHealthLossMixin)
-        PlayerFrame.PlayerFrameHealthBarAnimatedLoss:SetStatusBarTexture("Interface\\TargetingFrame\\UI-StatusBar")
-        PlayerFrame.PlayerFrameHealthBarAnimatedLoss:SetFrameLevel(PlayerFrame.healthbar:GetFrameLevel() - 1)
-        PlayerFrame.PlayerFrameHealthBarAnimatedLoss:OnLoad()
-        PlayerFrame.PlayerFrameHealthBarAnimatedLoss:SetUnitHealthBar(PlayerFrame.unit, PlayerFrame.healthbar)
-        PlayerFrame.PlayerFrameHealthBarAnimatedLoss:Hide()
-
-        function PlayerFrame.PlayerFrameHealthBarAnimatedLoss:UpdateLossAnimation(currentHealth)
-            local totalAbsorb = 0
-
-            if totalAbsorb > 0 then
-                self:CancelAnimation()
-            end
-
-            if self.animationStartTime then
-                local animationValue, animationCompletePercent = self:GetHealthLossAnimationData(currentHealth, self.animationStartValue)
-
-                self.animationCompletePercent = animationCompletePercent
-
-                if animationCompletePercent >= 1 then
-                    self:CancelAnimation()
-                else
-                    self:SetValue(animationValue)
-                end
-            end
-        end
-    end
 
     initUnitFrame(
         PetFrame,
@@ -1569,10 +1522,6 @@ local function ClassicHealPredictionFrame_OnEvent(self, event, arg1)
         loadedSettings = true
 
         self:UnregisterEvent("ADDON_LOADED")
-    elseif event == "VARIABLES_LOADED" then
-        SetCVar("predictedHealth", 0)
-
-        self:UnregisterEvent("VARIABLES_LOADED")
     elseif event == "PLAYER_ENTERING_WORLD" then
         updateAllFrames()
 
@@ -1625,10 +1574,6 @@ _G.ClassicHealPredictionFrame_Cancel = ClassicHealPredictionFrame_Cancel
 
 local function ClassicHealPredictionFrame_OnLoad(self)
     self:RegisterEvent("ADDON_LOADED")
-
-    SetCVar("predictedHealth", 0)
-
-    self:RegisterEvent("VARIABLES_LOADED")
 
     local frame = CreateFrame("Frame")
     frame:RegisterEvent("NAME_PLATE_UNIT_ADDED")
