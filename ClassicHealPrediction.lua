@@ -24,8 +24,6 @@ local next = next
 local GetTime = GetTime
 
 local UnitGUID = UnitGUID
-local UnitHealth = UnitHealth
-local UnitHealthMax = UnitHealthMax
 local UnitCanAssist = UnitCanAssist
 local CastingInfo = CastingInfo
 local GetSpellPowerCost = GetSpellPowerCost
@@ -721,13 +719,8 @@ hooksecurefunc(
     "UnitFrameHealthBar_OnUpdate",
     function(self)
         if not self.disconnected and not self.lockValues then
-            local currValue = UnitHealth(self.unit)
-
-            if currValue ~= self._CHP_currValue then
-                if not self.ignoreNoUnit or UnitGUID(self.unit) then
-                    self._CHP_currValue = currValue
-                    defer_UnitFrameHealPredictionBars_Update(self:GetParent())
-                end
+            if not self.ignoreNoUnit or UnitGUID(self.unit) then
+                defer_UnitFrameHealPredictionBars_Update(self:GetParent())
             end
         end
     end
@@ -738,17 +731,6 @@ hooksecurefunc(
     function(statusbar, unit)
         if not statusbar or statusbar.lockValues then
             return
-        end
-
-        if unit == statusbar.unit then
-            local maxValue = UnitHealthMax(unit)
-
-            if statusbar.disconnected then
-                statusbar._CHP_currValue = maxValue
-            else
-                local currValue = UnitHealth(unit)
-                statusbar._CHP_currValue = currValue
-            end
         end
 
         defer_UnitFrameHealPredictionBars_Update(statusbar:GetParent())
