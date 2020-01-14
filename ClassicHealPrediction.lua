@@ -205,7 +205,6 @@ local ClassicHealPredictionDefaultSettings = {
     showManaCostPrediction = true,
     raidFramesMaxOverflow = toggleValue(0.05, true),
     unitFramesMaxOverflow = toggleValue(0.0, true),
-    showFlaggedMembersRightSide = false
 }
 local ClassicHealPredictionSettings = ClassicHealPredictionDefaultSettings
 
@@ -286,7 +285,6 @@ local loadedSettings = false
 local loadedFrame = false
 local checkBoxes
 local checkBox2
-local checkBox5
 local slider
 local slider2
 local slider3
@@ -665,50 +663,6 @@ hooksecurefunc("CompactUnitFrame_UpdateAll", compactUnitFrame_UpdateAll)
 hooksecurefunc("CompactUnitFrame_UpdateMaxHealth", defer_CompactUnitFrame_UpdateHealPrediction)
 
 local updateAllFrames
-
-hooksecurefunc(
-    "CompactRaidFrameContainer_LayoutFrames",
-    function(self)
-        if not ClassicHealPredictionSettings.showFlaggedMembersRightSide then
-            return
-        end
-
-        if InCombatLockdown() then
-            updateAllFrames(true)
-            return
-        end
-
-        for i = 1, #self.flowFrames do
-            if type(self.flowFrames[i]) == "table" and self.flowFrames[i].unusedFunc then
-                self.flowFrames[i]:unusedFunc()
-            end
-        end
-
-        FlowContainer_RemoveAllObjects(self)
-        FlowContainer_PauseUpdates(self)
-
-        if self.groupMode == "discrete" then
-            CompactRaidFrameContainer_AddGroups(self)
-        elseif self.groupMode == "flush" then
-            CompactRaidFrameContainer_AddPlayers(self)
-        else
-            error("Unknown group mode")
-        end
-
-        if self.displayPets then
-            CompactRaidFrameContainer_AddPets(self)
-        end
-
-        if self.displayFlaggedMembers then
-            FlowContainer_AddLineBreak(self)
-            CompactRaidFrameContainer_AddFlaggedUnits(self)
-        end
-
-        FlowContainer_ResumeUpdates(self)
-        CompactRaidFrameContainer_UpdateBorder(self)
-        CompactRaidFrameContainer_ReleaseAllReservedFrames(self)
-    end
-)
 
 local function unitFrame_Update(self)
     do
@@ -1433,8 +1387,6 @@ local function ClassicHealPredictionFrame_Refresh()
         local r, g, b, a = unpack(ClassicHealPredictionSettings.colors[colorSwatch.index])
         colorSwatch:GetNormalTexture():SetVertexColor(r, g, b, a)
     end
-
-    checkBox5:SetChecked(ClassicHealPredictionSettings.showFlaggedMembersRightSide)
 end
 
 local function ClassicHealPredictionFrame_OnEvent(self, event, arg1)
@@ -1940,22 +1892,6 @@ local function ClassicHealPredictionFrame_OnLoad(self)
             tappend(colorSwatches, x)
         end
     end
-
-    local checkBoxName5 = format("ClassicHealPredictionCheckbox%d", #checkBoxes + 4)
-    checkBox5 = CreateFrame("CheckButton", checkBoxName5, self, "OptionsCheckButtonTemplate")
-    checkBox5:SetPoint("TOPLEFT", checkBox2, "BOTTOMLEFT", 0, 0)
-    checkBox5.Text = _G[checkBoxName5 .. "Text"]
-    checkBox5.Text:SetText("Show main tanks and main assists on the right side in raid frames")
-    checkBox5.Text:SetTextColor(1, 1, 1)
-
-    checkBox5:SetScript(
-        "OnClick",
-        function(self)
-            ClassicHealPredictionSettings.showFlaggedMembersRightSide = self:GetChecked()
-
-            updateAllFrames(true)
-        end
-    )
 
     self.name = ADDON_NAME
     self.default = ClassicHealPredictionFrame_Default
