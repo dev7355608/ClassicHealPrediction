@@ -181,6 +181,7 @@ local ClassicHealPredictionDefaultSettings = {
     myDelta = toggleValue(3, false),
     otherDelta = toggleValue(3, false),
     overhealThreshold = toggleValue(0.2, false),
+    overlaying = false,
     colors = {
         {gradient(0.043, 0.533, 0.412, 1.0)},
         {gradient(0.043, 0.533, 0.412, 0.5)},
@@ -283,6 +284,7 @@ local loadedSettings = false
 local loadedFrame = false
 local checkBoxes
 local checkBox2
+local checkBox3
 local slider
 local slider2
 local slider3
@@ -422,21 +424,29 @@ local function updateHealPrediction(frame, unit, cutoff, gradient, colorPalette,
         end
     end
 
-    local myIncomingHeal = myIncomingHeal1 + myIncomingHeal2
-    local otherIncomingHeal = otherIncomingHeal1 + otherIncomingHeal2
-    local allIncomingHeal = myIncomingHeal + otherIncomingHeal
+    local incomingHeal1
+    local incomingHeal2
+
+    if ClassicHealPredictionSettings.overlaying then
+        incomingHeal1 = max(myIncomingHeal1, otherIncomingHeal1)
+        incomingHeal2 = max(myIncomingHeal2, otherIncomingHeal2)
+    else
+        incomingHeal1 = myIncomingHeal1 + otherIncomingHeal1
+        incomingHeal2 = myIncomingHeal2 + otherIncomingHeal2
+    end
+
+    local allIncomingHeal = incomingHeal1 + incomingHeal2
 
     if cutoff then
         allIncomingHeal = min(allIncomingHeal, maxHealth * cutoff - health + currentHealAbsorb)
     end
 
-    local incomingHeal1 = myIncomingHeal1 + otherIncomingHeal1
-    local incomingHeal2
-
     incomingHeal1 = min(incomingHeal1, allIncomingHeal)
     incomingHeal2 = allIncomingHeal - incomingHeal1
+
     myIncomingHeal1 = min(myIncomingHeal1, incomingHeal1)
     myIncomingHeal2 = min(myIncomingHeal2, incomingHeal2)
+
     otherIncomingHeal1 = incomingHeal1 - myIncomingHeal1
     otherIncomingHeal2 = incomingHeal2 - myIncomingHeal2
 
@@ -1348,6 +1358,8 @@ local function ClassicHealPredictionFrame_Refresh()
         slider4.High:SetTextColor(0.5, 0.5, 0.5)
     end
 
+    checkBox3:SetChecked(ClassicHealPredictionSettings.overlaying)
+
     checkBox2:SetChecked(ClassicHealPredictionSettings.showManaCostPrediction)
 
     for _, colorSwatch in ipairs(colorSwatches) do
@@ -1763,9 +1775,25 @@ local function ClassicHealPredictionFrame_OnLoad(self)
         end
     )
 
+    local checkBoxName3 = format("ClassicHealPredictionCheckbox%d", #checkBoxes + 2)
+    checkBox3 = CreateFrame("CheckButton", checkBoxName3, self, "OptionsCheckButtonTemplate")
+    checkBox3:SetPoint("TOPLEFT", sliderCheckBox4, "BOTTOMLEFT", 0, -50)
+    checkBox3.Text = _G[checkBoxName3 .. "Text"]
+    checkBox3.Text:SetText("Overlay the healing of others with my healing")
+    checkBox3.Text:SetTextColor(1, 1, 1)
+
+    checkBox3:SetScript(
+        "OnClick",
+        function(self)
+            ClassicHealPredictionSettings.overlaying = self:GetChecked()
+
+            updateAllFrames()
+        end
+    )
+
     local checkBoxName2 = format("ClassicHealPredictionCheckbox%d", #checkBoxes + 1)
     checkBox2 = CreateFrame("CheckButton", checkBoxName2, self, "OptionsCheckButtonTemplate")
-    checkBox2:SetPoint("TOPLEFT", sliderCheckBox4, "BOTTOMLEFT", 0, -50)
+    checkBox2:SetPoint("TOPLEFT", checkBox3, "BOTTOMLEFT", 0, 0)
     checkBox2.Text = _G[checkBoxName2 .. "Text"]
     checkBox2.Text:SetText("Show my mana cost prediction in the player unit frame")
     checkBox2.Text:SetTextColor(1, 1, 1)
