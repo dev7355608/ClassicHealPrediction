@@ -204,7 +204,7 @@ local ClassicHealPredictionDefaultSettings = {
     },
     showManaCostPrediction = true,
     raidFramesMaxOverflow = toggleValue(0.05, true),
-    unitFramesMaxOverflow = toggleValue(0.0, true),
+    unitFramesMaxOverflow = toggleValue(0.0, true)
 }
 local ClassicHealPredictionSettings = ClassicHealPredictionDefaultSettings
 
@@ -662,8 +662,6 @@ hooksecurefunc("CompactUnitFrame_UpdateAll", compactUnitFrame_UpdateAll)
 
 hooksecurefunc("CompactUnitFrame_UpdateMaxHealth", defer_CompactUnitFrame_UpdateHealPrediction)
 
-local updateAllFrames
-
 local function unitFrame_Update(self)
     do
         local unit = self.unit
@@ -791,9 +789,7 @@ local function UpdateHealPrediction(...)
     end
 end
 
-local deferUpdateAllFrames
-
-function updateAllFrames(tryUpdate)
+local function updateAllFrames()
     do
         local allUnitFrames = {}
 
@@ -811,26 +807,20 @@ function updateAllFrames(tryUpdate)
         end
     end
 
-    if tryUpdate then
-        if InCombatLockdown() then
-            deferUpdateAllFrames = {tryUpdate}
-        else
-            CompactRaidFrameContainer_TryUpdate(CompactRaidFrameContainer)
-        end
-    end
+    do
+        local allCompactUnitFrames = {}
 
-    local allCompactUnitFrames = {}
-
-    for _, compactUnitFrames in pairs(guidToCompactUnitFrame) do
-        if compactUnitFrames then
-            for compactUnitFrame in pairs(compactUnitFrames) do
-                allCompactUnitFrames[compactUnitFrame] = true
+        for _, compactUnitFrames in pairs(guidToCompactUnitFrame) do
+            if compactUnitFrames then
+                for compactUnitFrame in pairs(compactUnitFrames) do
+                    allCompactUnitFrames[compactUnitFrame] = true
+                end
             end
         end
-    end
 
-    for compactUnitFrame in pairs(allCompactUnitFrames) do
-        compactUnitFrame_UpdateAll(compactUnitFrame)
+        for compactUnitFrame in pairs(allCompactUnitFrames) do
+            compactUnitFrame_UpdateAll(compactUnitFrame)
+        end
     end
 
     do
@@ -847,17 +837,12 @@ function updateAllFrames(tryUpdate)
 end
 
 local function ClassicHealPrediction_OnEvent(event, arg1)
-    if event == "PLAYER_REGEN_ENABLED" then
-        if deferUpdateAllFrames then
-            updateAllFrames(unpack(deferUpdateAllFrames))
-            deferUpdateAllFrames = nil
-        end
-    elseif event == "GROUP_ROSTER_UPDATE" then
+    if event == "GROUP_ROSTER_UPDATE" then
         if InCombatLockdown() then
             for _, compactUnitFrames in pairs(guidToCompactUnitFrame) do
                 if compactUnitFrames then
-                    for frame in pairs(compactUnitFrames) do
-                        defer_CompactUnitFrame_UpdateHealPrediction(frame)
+                    for compactUnitFrame in pairs(compactUnitFrames) do
+                        defer_CompactUnitFrame_UpdateHealPrediction(compactUnitFrame)
                     end
                 end
             end
@@ -886,12 +871,12 @@ local function ClassicHealPrediction_OnEvent(event, arg1)
 end
 
 local function ClassicHealPrediction_OnUpdate()
-    for frame in pairs(deferredUnitFrames) do
-        UnitFrameHealPredictionBars_Update(frame)
+    for unitFrame in pairs(deferredUnitFrames) do
+        UnitFrameHealPredictionBars_Update(unitFrame)
     end
 
-    for frame in pairs(deferredCompactUnitFrames) do
-        CompactUnitFrame_UpdateHealPrediction(frame)
+    for compactUnitFrame in pairs(deferredCompactUnitFrames) do
+        CompactUnitFrame_UpdateHealPrediction(compactUnitFrame)
     end
 
     wipe(deferredUnitFrames)
@@ -1466,7 +1451,6 @@ local function ClassicHealPredictionFrame_OnLoad(self)
     local frame = CreateFrame("Frame")
     frame:RegisterEvent("NAME_PLATE_UNIT_ADDED")
     frame:RegisterEvent("NAME_PLATE_UNIT_REMOVED")
-    frame:RegisterEvent("PLAYER_REGEN_ENABLED")
     frame:RegisterEvent("GROUP_ROSTER_UPDATE")
 
     frame:SetScript(
