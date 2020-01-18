@@ -698,16 +698,7 @@ local function unitFrame_Update(self)
     unitFrameManaCostPredictionBars_Update(self)
 end
 
-hooksecurefunc(
-    "UnitFrame_SetUnit",
-    function(self, unit, healthbar, manabar)
-        if not healthbar:GetScript("OnUpdate") then
-            healthbar:RegisterUnitEvent("UNIT_HEALTH", unit)
-        end
-
-        unitFrame_Update(self)
-    end
-)
+hooksecurefunc("UnitFrame_SetUnit", unitFrame_Update)
 
 hooksecurefunc("UnitFrame_Update", unitFrame_Update)
 
