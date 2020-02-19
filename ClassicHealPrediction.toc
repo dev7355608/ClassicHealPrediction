@@ -4,6 +4,7 @@
 ## Version: @project-version@
 ## Author: dev7355608
 ## SavedVariablesPerCharacter: ClassicHealPredictionSettings
+## OptionalDeps: ClassicInstantHealth
 ## X-Curse-Project-ID: 351332
 ## X-WoWI-ID: 25452
 
