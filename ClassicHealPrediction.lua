@@ -668,6 +668,8 @@ end
 
 hooksecurefunc("CompactUnitFrame_UpdateAll", compactUnitFrame_UpdateAll)
 
+hooksecurefunc("CompactUnitFrame_UpdateHealth", defer_CompactUnitFrame_UpdateHealPrediction)
+
 hooksecurefunc("CompactUnitFrame_UpdateMaxHealth", defer_CompactUnitFrame_UpdateHealPrediction)
 
 local function unitFrame_Update(self)
