@@ -475,11 +475,11 @@ local function updateHealPrediction(frame, unit, cutoff, gradient, colorPalette,
     local healAbsorbTexture
 
     if healAbsorb then
-        currentHealAbsorbPercent = currentHealAbsorb / maxHealth
+        currentHealAbsorbPercent = maxHealth <= 0 and 0 or currentHealAbsorb / maxHealth
 
         if currentHealAbsorb > allIncomingHeal then
             local shownHealAbsorb = currentHealAbsorb - allIncomingHeal
-            local shownHealAbsorbPercent = shownHealAbsorb / maxHealth
+            local shownHealAbsorbPercent = maxHealth <= 0 and 0 or shownHealAbsorb / maxHealth
 
             healAbsorbTexture = updateFillBar(frame, healthTexture, healAbsorb, shownHealAbsorb, -shownHealAbsorbPercent)
 
