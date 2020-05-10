@@ -11,7 +11,7 @@ externals:
         tag: latest
     libs/LibHealComm-4.0:
         url: https://repos.wowace.com/wow/libhealcomm-4-0
-        tag: v1.8.0
+        tag: v1.8.1
 
 ignore:
     - README.md
