@@ -231,11 +231,11 @@ local function getTexture(frame, name)
     end
 
     name = name and string.gsub(name, "%$parent", frame:GetName())
-    return name and _G[name] and _G["_CHP_" .. name]
+    return name and _G[name]
 end
 
 local function createTexture(frame, name, layer, subLayer)
-    return getTexture(frame, name) or frame:CreateTexture(name and "_CHP_" .. name, layer, nil, subLayer)
+    return getTexture(frame, name) or frame:CreateTexture(name, layer, nil, subLayer)
 end
 
 local function deepcopy(orig)
@@ -269,6 +269,23 @@ local function deepmerge(tbl1, tbl2)
         end
     end
 end
+
+local weaktable = {__mode = "k"}
+local healthBar = setmetatable({}, weaktable)
+local myHealPrediction = setmetatable({}, weaktable)
+local myHealPrediction2 = setmetatable({}, weaktable)
+local otherHealPrediction = setmetatable({}, weaktable)
+local otherHealPrediction2 = setmetatable({}, weaktable)
+local healAbsorb = setmetatable({}, weaktable)
+local overHealAbsorbGlow = setmetatable({}, weaktable)
+local overAbsorbGlow = setmetatable({}, weaktable)
+local healAbsorbRightShadow = setmetatable({}, weaktable)
+local healAbsorbLeftShadow = setmetatable({}, weaktable)
+local totalAbsorb = setmetatable({}, weaktable)
+local totalAbsorbOverlay = setmetatable({}, weaktable)
+local setGradient = setmetatable({}, weaktable)
+local proxyFrame = setmetatable({}, weaktable)
+local currUnitGUID = setmetatable({}, weaktable)
 
 local tickIntervals
 
@@ -314,26 +331,26 @@ local function getIncomingHeals(unit)
 end
 
 local function updateHealPrediction(frame, unit, cutoff, gradient, colorPalette, colorPalette2, updateFillBar)
-    if not frame._CHP_myHealPrediction then
+    if not myHealPrediction[frame] then
         return
     end
 
-    local _, maxHealth = frame._CHP_healthBar:GetMinMaxValues()
-    local health = frame._CHP_healthBar:GetValue()
+    local _, maxHealth = healthBar[frame]:GetMinMaxValues()
+    local health = healthBar[frame]:GetValue()
     local myIncomingHeal1, myIncomingHeal2, otherIncomingHeal1, otherIncomingHeal2 = getIncomingHeals(unit)
-    local totalAbsorb = 0
+    local currentTotalAbsorb = 0
     local currentHealAbsorb = 0
 
-    local healAbsorb = frame._CHP_healAbsorb
+    local healAbsorb = healAbsorb[frame]
 
     if healAbsorb then
         currentHealAbsorb = 0
 
         if health < currentHealAbsorb then
-            frame._CHP_overHealAbsorbGlow:Show()
+            overHealAbsorbGlow[frame]:Show()
             currentHealAbsorb = health
         else
-            frame._CHP_overHealAbsorbGlow:Hide()
+            overHealAbsorbGlow[frame]:Hide()
         end
     end
 
@@ -349,10 +366,10 @@ local function updateHealPrediction(frame, unit, cutoff, gradient, colorPalette,
 
     local colors = ClassicHealPredictionSettings.colors
 
-    local myHealPrediction1 = frame._CHP_myHealPrediction
-    local myHealPrediction2 = frame._CHP_myHealPrediction2
-    local otherHealPrediction1 = frame._CHP_otherHealPrediction
-    local otherHealPrediction2 = frame._CHP_otherHealPrediction2
+    local myHealPrediction1 = myHealPrediction[frame]
+    local myHealPrediction2 = myHealPrediction2[frame]
+    local otherHealPrediction1 = otherHealPrediction[frame]
+    local otherHealPrediction2 = otherHealPrediction2[frame]
 
     if gradient then
         local r, g, b, a, r2, g2, b2
@@ -452,30 +469,33 @@ local function updateHealPrediction(frame, unit, cutoff, gradient, colorPalette,
 
     local overAbsorb = false
 
-    if health - currentHealAbsorb + allIncomingHeal + totalAbsorb >= maxHealth or health + totalAbsorb >= maxHealth then
-        if totalAbsorb > 0 then
+    if health - currentHealAbsorb + allIncomingHeal + currentTotalAbsorb >= maxHealth or health + currentTotalAbsorb >= maxHealth then
+        if currentTotalAbsorb > 0 then
             overAbsorb = true
         end
 
         if allIncomingHeal > currentHealAbsorb then
-            totalAbsorb = max(0, maxHealth - (health - currentHealAbsorb + allIncomingHeal))
+            currentTotalAbsorb = max(0, maxHealth - (health - currentHealAbsorb + allIncomingHeal))
         else
-            totalAbsorb = max(0, maxHealth - health)
+            currentTotalAbsorb = max(0, maxHealth - health)
         end
     end
 
     if overAbsorb then
-        frame._CHP_overAbsorbGlow:Show()
+        overAbsorbGlow[frame]:Show()
     else
-        frame._CHP_overAbsorbGlow:Hide()
+        overAbsorbGlow[frame]:Hide()
     end
 
-    local healthTexture = frame._CHP_healthBar:GetStatusBarTexture()
+    local healthTexture = healthBar[frame]:GetStatusBarTexture()
     local currentHealAbsorbPercent = 0
     local healAbsorbTexture
 
     if healAbsorb then
         currentHealAbsorbPercent = maxHealth <= 0 and 0 or currentHealAbsorb / maxHealth
+
+        local healAbsorbLeftShadow = healAbsorbLeftShadow[frame]
+        local healAbsorbRightShadow = healAbsorbRightShadow[frame]
 
         if currentHealAbsorb > allIncomingHeal then
             local shownHealAbsorb = currentHealAbsorb - allIncomingHeal
@@ -484,24 +504,24 @@ local function updateHealPrediction(frame, unit, cutoff, gradient, colorPalette,
             healAbsorbTexture = updateFillBar(frame, healthTexture, healAbsorb, shownHealAbsorb, -shownHealAbsorbPercent)
 
             if allIncomingHeal > 0 then
-                frame._CHP_healAbsorbLeftShadow:Hide()
+                healAbsorbLeftShadow:Hide()
             else
-                frame._CHP_healAbsorbLeftShadow:SetPoint("TOPLEFT", healAbsorbTexture, "TOPLEFT", 0, 0)
-                frame._CHP_healAbsorbLeftShadow:SetPoint("BOTTOMLEFT", healAbsorbTexture, "BOTTOMLEFT", 0, 0)
-                frame._CHP_healAbsorbLeftShadow:Show()
+                healAbsorbLeftShadow:SetPoint("TOPLEFT", healAbsorbTexture, "TOPLEFT", 0, 0)
+                healAbsorbLeftShadow:SetPoint("BOTTOMLEFT", healAbsorbTexture, "BOTTOMLEFT", 0, 0)
+                healAbsorbLeftShadow:Show()
             end
 
-            if totalAbsorb > 0 then
-                frame._CHP_healAbsorbRightShadow:SetPoint("TOPLEFT", healAbsorbTexture, "TOPRIGHT", -8, 0)
-                frame._CHP_healAbsorbRightShadow:SetPoint("BOTTOMLEFT", healAbsorbTexture, "BOTTOMRIGHT", -8, 0)
-                frame._CHP_healAbsorbRightShadow:Show()
+            if currentTotalAbsorb > 0 then
+                healAbsorbRightShadow:SetPoint("TOPLEFT", healAbsorbTexture, "TOPRIGHT", -8, 0)
+                healAbsorbRightShadow:SetPoint("BOTTOMLEFT", healAbsorbTexture, "BOTTOMRIGHT", -8, 0)
+                healAbsorbRightShadow:Show()
             else
-                frame._CHP_healAbsorbRightShadow:Hide()
+                healAbsorbRightShadow:Hide()
             end
         else
             healAbsorb:Hide()
-            frame._CHP_healAbsorbLeftShadow:Hide()
-            frame._CHP_healAbsorbRightShadow:Hide()
+            healAbsorbLeftShadow:Hide()
+            healAbsorbRightShadow:Hide()
         end
     end
 
@@ -511,7 +531,7 @@ local function updateHealPrediction(frame, unit, cutoff, gradient, colorPalette,
     incomingHealsTexture = updateFillBar(frame, incomingHealsTexture, otherHealPrediction2, otherIncomingHeal2)
 
     local appendTexture = healAbsorbTexture or incomingHealsTexture
-    updateFillBar(frame, appendTexture, frame._CHP_totalAbsorb, totalAbsorb)
+    updateFillBar(frame, appendTexture, totalAbsorb[frame], currentTotalAbsorb)
 end
 
 local CompactUnitFrame_UpdateHealPrediction
@@ -531,7 +551,7 @@ do
             cutoff = 1.0 + maxOverflow
         end
 
-        updateHealPrediction(frame, frame.displayedUnit, cutoff, frame._CHP_setGradient, compactUnitFrameColorPalette, compactUnitFrameColorPalette2, CompactUnitFrameUtil_UpdateFillBar)
+        updateHealPrediction(frame, frame.displayedUnit, cutoff, setGradient[frame], compactUnitFrameColorPalette, compactUnitFrameColorPalette2, CompactUnitFrameUtil_UpdateFillBar)
     end
 
     function UnitFrameHealPredictionBars_Update(frame)
@@ -605,7 +625,7 @@ local function unitFrameManaCostPredictionBars_Update(frame, isStarting, startTi
 end
 
 local function UnitFrameHealPredictionBars_UpdateSize(self)
-    if not self._CHP_myHealPrediction or not self._CHP_otherHealPrediction then
+    if not myHealPrediction[self] or not otherHealPrediction[self] then
         return
     end
 
@@ -642,7 +662,7 @@ local function compactUnitFrame_UpdateAll(frame)
     local unit = frame.displayedUnit
 
     do
-        local unitGUID = frame._CHP_unitGUID
+        local unitGUID = currUnitGUID[frame]
         local newUnitGUID = unit and UnitGUID(unit)
 
         if newUnitGUID ~= unitGUID then
@@ -659,7 +679,7 @@ local function compactUnitFrame_UpdateAll(frame)
                 guidToCompactUnitFrame[newUnitGUID][frame] = true
             end
 
-            frame._CHP_unitGUID = newUnitGUID
+            currUnitGUID[frame] = newUnitGUID
         end
     end
 
@@ -675,7 +695,7 @@ hooksecurefunc("CompactUnitFrame_UpdateMaxHealth", defer_CompactUnitFrame_Update
 local function unitFrame_Update(self)
     do
         local unit = self.unit
-        local unitGUID = self._CHP_unitGUID
+        local unitGUID = currUnitGUID[self]
         local newUnitGUID = unit and UnitGUID(unit)
 
         if newUnitGUID ~= unitGUID then
@@ -692,7 +712,7 @@ local function unitFrame_Update(self)
                 guidToUnitFrame[newUnitGUID][self] = true
             end
 
-            self._CHP_unitGUID = newUnitGUID
+            currUnitGUID[self] = newUnitGUID
         end
     end
 
@@ -872,67 +892,67 @@ end
 
 do
     local function defaultCompactUnitFrameSetup(frame)
-        if frame:IsForbidden() or frame._CHP_myHealPrediction then
+        if frame:IsForbidden() or myHealPrediction[frame] then
             return
         end
 
-        frame._CHP_setGradient = true
-        frame._CHP_healthBar = frame.healthBar
+        setGradient[frame] = true
+        healthBar[frame] = frame.healthBar
 
-        frame._CHP_myHealPrediction = createTexture(frame, "$parentMyHealPrediction", "BORDER", 5)
-        frame._CHP_myHealPrediction:ClearAllPoints()
-        frame._CHP_myHealPrediction:SetColorTexture(1, 1, 1)
+        myHealPrediction[frame] = createTexture(frame, "$parentMyHealPrediction", "BORDER", 5)
+        myHealPrediction[frame]:ClearAllPoints()
+        myHealPrediction[frame]:SetColorTexture(1, 1, 1)
 
-        frame._CHP_myHealPrediction2 = createTexture(frame, "$parentMyHealPrediction2", "BORDER", 5)
-        frame._CHP_myHealPrediction2:ClearAllPoints()
-        frame._CHP_myHealPrediction2:SetColorTexture(1, 1, 1)
+        myHealPrediction2[frame] = createTexture(frame, "$parentMyHealPrediction2", "BORDER", 5)
+        myHealPrediction2[frame]:ClearAllPoints()
+        myHealPrediction2[frame]:SetColorTexture(1, 1, 1)
 
-        frame._CHP_otherHealPrediction = createTexture(frame, "$parentOtherHealPrediction", "BORDER", 5)
-        frame._CHP_otherHealPrediction:ClearAllPoints()
-        frame._CHP_otherHealPrediction:SetColorTexture(1, 1, 1)
+        otherHealPrediction[frame] = createTexture(frame, "$parentOtherHealPrediction", "BORDER", 5)
+        otherHealPrediction[frame]:ClearAllPoints()
+        otherHealPrediction[frame]:SetColorTexture(1, 1, 1)
 
-        frame._CHP_otherHealPrediction2 = createTexture(frame, "$parentOtherHealPrediction2", "BORDER", 5)
-        frame._CHP_otherHealPrediction2:ClearAllPoints()
-        frame._CHP_otherHealPrediction2:SetColorTexture(1, 1, 1)
+        otherHealPrediction2[frame] = createTexture(frame, "$parentOtherHealPrediction2", "BORDER", 5)
+        otherHealPrediction2[frame]:ClearAllPoints()
+        otherHealPrediction2[frame]:SetColorTexture(1, 1, 1)
 
-        frame._CHP_totalAbsorb = createTexture(frame, "$parentTotalAbsorb", "BORDER", 5)
-        frame._CHP_totalAbsorb:ClearAllPoints()
-        frame._CHP_totalAbsorb:SetTexture("Interface\\RaidFrame\\Shield-Fill")
+        totalAbsorb[frame] = createTexture(frame, "$parentTotalAbsorb", "BORDER", 5)
+        totalAbsorb[frame]:ClearAllPoints()
+        totalAbsorb[frame]:SetTexture("Interface\\RaidFrame\\Shield-Fill")
 
-        frame._CHP_totalAbsorbOverlay = createTexture(frame, "$parentTotalAbsorbOverlay", "BORDER", 6)
-        frame._CHP_totalAbsorb.overlay = frame._CHP_totalAbsorbOverlay
-        frame._CHP_totalAbsorbOverlay:SetTexture("Interface\\RaidFrame\\Shield-Overlay", true, true)
-        frame._CHP_totalAbsorbOverlay:SetAllPoints(frame._CHP_totalAbsorb)
-        frame._CHP_totalAbsorbOverlay.tileSize = 32
+        totalAbsorbOverlay[frame] = createTexture(frame, "$parentTotalAbsorbOverlay", "BORDER", 6)
+        totalAbsorb[frame].overlay = totalAbsorbOverlay[frame]
+        totalAbsorbOverlay[frame]:SetTexture("Interface\\RaidFrame\\Shield-Overlay", true, true)
+        totalAbsorbOverlay[frame]:SetAllPoints(totalAbsorb[frame])
+        totalAbsorbOverlay[frame].tileSize = 32
 
-        frame._CHP_healAbsorb = createTexture(frame, "$parentMyHealAbsorb", "ARTWORK", 1)
-        frame._CHP_healAbsorb:ClearAllPoints()
-        frame._CHP_healAbsorb:SetTexture("Interface\\RaidFrame\\Absorb-Fill", true, true)
+        healAbsorb[frame] = createTexture(frame, "$parentMyHealAbsorb", "ARTWORK", 1)
+        healAbsorb[frame]:ClearAllPoints()
+        healAbsorb[frame]:SetTexture("Interface\\RaidFrame\\Absorb-Fill", true, true)
 
-        frame._CHP_healAbsorbLeftShadow = createTexture(frame, "$parentMyHealAbsorbLeftShadow", "ARTWORK", 1)
-        frame._CHP_healAbsorbLeftShadow:ClearAllPoints()
-        frame._CHP_healAbsorbLeftShadow:SetTexture("Interface\\RaidFrame\\Absorb-Edge")
+        healAbsorbLeftShadow[frame] = createTexture(frame, "$parentMyHealAbsorbLeftShadow", "ARTWORK", 1)
+        healAbsorbLeftShadow[frame]:ClearAllPoints()
+        healAbsorbLeftShadow[frame]:SetTexture("Interface\\RaidFrame\\Absorb-Edge")
 
-        frame._CHP_healAbsorbRightShadow = createTexture(frame, "$parentMyHealAbsorbRightShadow", "ARTWORK", 1)
-        frame._CHP_healAbsorbRightShadow:ClearAllPoints()
-        frame._CHP_healAbsorbRightShadow:SetTexture("Interface\\RaidFrame\\Absorb-Edge")
-        frame._CHP_healAbsorbRightShadow:SetTexCoord(1, 0, 0, 1)
+        healAbsorbRightShadow[frame] = createTexture(frame, "$parentMyHealAbsorbRightShadow", "ARTWORK", 1)
+        healAbsorbRightShadow[frame]:ClearAllPoints()
+        healAbsorbRightShadow[frame]:SetTexture("Interface\\RaidFrame\\Absorb-Edge")
+        healAbsorbRightShadow[frame]:SetTexCoord(1, 0, 0, 1)
 
-        frame._CHP_overAbsorbGlow = createTexture(frame, "$parentOverAbsorbGlow", "ARTWORK", 2)
-        frame._CHP_overAbsorbGlow:ClearAllPoints()
-        frame._CHP_overAbsorbGlow:SetTexture("Interface\\RaidFrame\\Shield-Overshield")
-        frame._CHP_overAbsorbGlow:SetBlendMode("ADD")
-        frame._CHP_overAbsorbGlow:SetPoint("BOTTOMLEFT", frame._CHP_healthBar, "BOTTOMRIGHT", -7, 0)
-        frame._CHP_overAbsorbGlow:SetPoint("TOPLEFT", frame._CHP_healthBar, "TOPRIGHT", -7, 0)
-        frame._CHP_overAbsorbGlow:SetWidth(16)
+        overAbsorbGlow[frame] = createTexture(frame, "$parentOverAbsorbGlow", "ARTWORK", 2)
+        overAbsorbGlow[frame]:ClearAllPoints()
+        overAbsorbGlow[frame]:SetTexture("Interface\\RaidFrame\\Shield-Overshield")
+        overAbsorbGlow[frame]:SetBlendMode("ADD")
+        overAbsorbGlow[frame]:SetPoint("BOTTOMLEFT", healthBar[frame], "BOTTOMRIGHT", -7, 0)
+        overAbsorbGlow[frame]:SetPoint("TOPLEFT", healthBar[frame], "TOPRIGHT", -7, 0)
+        overAbsorbGlow[frame]:SetWidth(16)
 
-        frame._CHP_overHealAbsorbGlow = createTexture(frame, "$parentOverHealAbsorbGlow", "ARTWORK", 2)
-        frame._CHP_overHealAbsorbGlow:ClearAllPoints()
-        frame._CHP_overHealAbsorbGlow:SetTexture("Interface\\RaidFrame\\Absorb-Overabsorb")
-        frame._CHP_overHealAbsorbGlow:SetBlendMode("ADD")
-        frame._CHP_overHealAbsorbGlow:SetPoint("BOTTOMRIGHT", frame._CHP_healthBar, "BOTTOMLEFT", 7, 0)
-        frame._CHP_overHealAbsorbGlow:SetPoint("TOPRIGHT", frame._CHP_healthBar, "TOPLEFT", 7, 0)
-        frame._CHP_overHealAbsorbGlow:SetWidth(16)
+        overHealAbsorbGlow[frame] = createTexture(frame, "$parentOverHealAbsorbGlow", "ARTWORK", 2)
+        overHealAbsorbGlow[frame]:ClearAllPoints()
+        overHealAbsorbGlow[frame]:SetTexture("Interface\\RaidFrame\\Absorb-Overabsorb")
+        overHealAbsorbGlow[frame]:SetBlendMode("ADD")
+        overHealAbsorbGlow[frame]:SetPoint("BOTTOMRIGHT", healthBar[frame], "BOTTOMLEFT", 7, 0)
+        overHealAbsorbGlow[frame]:SetPoint("TOPRIGHT", healthBar[frame], "TOPLEFT", 7, 0)
+        overHealAbsorbGlow[frame]:SetWidth(16)
     end
 
     hooksecurefunc("DefaultCompactUnitFrameSetup", defaultCompactUnitFrameSetup)
@@ -979,77 +999,77 @@ do
     hooksecurefunc(
         "DefaultCompactNamePlateFrameSetup",
         function(frame)
-            if frame:IsForbidden() or frame._CHP_myHealPrediction then
+            if frame:IsForbidden() or myHealPrediction[frame] then
                 return
             end
 
-            frame._CHP_healthBar = frame.healthBar
+            healthBar[frame] = frame.healthBar
 
-            frame._CHP_healthBar._CHP_myHealPrediction = createTexture(frame._CHP_healthBar, nil, "BORDER", 5)
-            frame._CHP_myHealPrediction = frame._CHP_healthBar._CHP_myHealPrediction
-            frame._CHP_myHealPrediction:ClearAllPoints()
-            frame._CHP_myHealPrediction:SetTexture("Interface/TargetingFrame/UI-TargetingFrame-BarFill")
+            myHealPrediction[healthBar[frame]] = createTexture(healthBar[frame], nil, "BORDER", 5)
+            myHealPrediction[frame] = myHealPrediction[healthBar[frame]]
+            myHealPrediction[frame]:ClearAllPoints()
+            myHealPrediction[frame]:SetTexture("Interface/TargetingFrame/UI-TargetingFrame-BarFill")
 
-            frame._CHP_healthBar._CHP_otherHealPrediction = createTexture(frame._CHP_healthBar, nil, "BORDER", 5)
-            frame._CHP_otherHealPrediction = frame._CHP_healthBar._CHP_otherHealPrediction
-            frame._CHP_otherHealPrediction:ClearAllPoints()
-            frame._CHP_otherHealPrediction:SetTexture("Interface/TargetingFrame/UI-TargetingFrame-BarFill")
+            otherHealPrediction[healthBar[frame]] = createTexture(healthBar[frame], nil, "BORDER", 5)
+            otherHealPrediction[frame] = otherHealPrediction[healthBar[frame]]
+            otherHealPrediction[frame]:ClearAllPoints()
+            otherHealPrediction[frame]:SetTexture("Interface/TargetingFrame/UI-TargetingFrame-BarFill")
 
-            frame._CHP_healthBar._CHP_myHealPrediction2 = createTexture(frame._CHP_healthBar, nil, "BORDER", 5)
-            frame._CHP_myHealPrediction2 = frame._CHP_healthBar._CHP_myHealPrediction2
-            frame._CHP_myHealPrediction2:ClearAllPoints()
-            frame._CHP_myHealPrediction2:SetTexture("Interface/TargetingFrame/UI-TargetingFrame-BarFill")
+            myHealPrediction2[healthBar[frame]] = createTexture(healthBar[frame], nil, "BORDER", 5)
+            myHealPrediction2[frame] = myHealPrediction2[healthBar[frame]]
+            myHealPrediction2[frame]:ClearAllPoints()
+            myHealPrediction2[frame]:SetTexture("Interface/TargetingFrame/UI-TargetingFrame-BarFill")
 
-            frame._CHP_healthBar._CHP_otherHealPrediction2 = createTexture(frame._CHP_healthBar, nil, "BORDER", 5)
-            frame._CHP_otherHealPrediction2 = frame._CHP_healthBar._CHP_otherHealPrediction2
-            frame._CHP_otherHealPrediction2:ClearAllPoints()
-            frame._CHP_otherHealPrediction2:SetTexture("Interface/TargetingFrame/UI-TargetingFrame-BarFill")
+            otherHealPrediction2[healthBar[frame]] = createTexture(healthBar[frame], nil, "BORDER", 5)
+            otherHealPrediction2[frame] = otherHealPrediction2[healthBar[frame]]
+            otherHealPrediction2[frame]:ClearAllPoints()
+            otherHealPrediction2[frame]:SetTexture("Interface/TargetingFrame/UI-TargetingFrame-BarFill")
 
-            frame._CHP_healthBar._CHP_totalAbsorb = createTexture(frame._CHP_healthBar, nil, "BORDER", 5)
-            frame._CHP_totalAbsorb = frame._CHP_healthBar._CHP_totalAbsorb
-            frame._CHP_totalAbsorb:ClearAllPoints()
-            frame._CHP_totalAbsorb:SetTexture("Interface\\RaidFrame\\Shield-Fill")
+            totalAbsorb[healthBar[frame]] = createTexture(healthBar[frame], nil, "BORDER", 5)
+            totalAbsorb[frame] = totalAbsorb[healthBar[frame]]
+            totalAbsorb[frame]:ClearAllPoints()
+            totalAbsorb[frame]:SetTexture("Interface\\RaidFrame\\Shield-Fill")
 
-            frame._CHP_healthBar._CHP_totalAbsorbOverlay = createTexture(frame._CHP_healthBar, nil, "BORDER", 6)
-            frame._CHP_totalAbsorbOverlay = frame._CHP_healthBar._CHP_totalAbsorbOverlay
-            frame._CHP_totalAbsorb.overlay = frame._CHP_totalAbsorbOverlay
-            frame._CHP_totalAbsorbOverlay:SetAllPoints(frame._CHP_totalAbsorb)
-            frame._CHP_totalAbsorbOverlay:SetTexture("Interface\\RaidFrame\\Shield-Overlay", true, true)
-            frame._CHP_totalAbsorbOverlay.tileSize = 20
+            totalAbsorbOverlay[healthBar[frame]] = createTexture(healthBar[frame], nil, "BORDER", 6)
+            totalAbsorbOverlay[frame] = totalAbsorbOverlay[healthBar[frame]]
+            totalAbsorb[frame].overlay = totalAbsorbOverlay[frame]
+            totalAbsorbOverlay[frame]:SetAllPoints(totalAbsorb[frame])
+            totalAbsorbOverlay[frame]:SetTexture("Interface\\RaidFrame\\Shield-Overlay", true, true)
+            totalAbsorbOverlay[frame].tileSize = 20
 
-            frame._CHP_healthBar._CHP_healAbsorb = createTexture(frame._CHP_healthBar, nil, "ARTWORK", 1)
-            frame._CHP_healAbsorb = frame._CHP_healthBar._CHP_healAbsorb
-            frame._CHP_healAbsorb:ClearAllPoints()
-            frame._CHP_healAbsorb:SetTexture("Interface\\RaidFrame\\Absorb-Fill", true, true)
+            healAbsorb[healthBar[frame]] = createTexture(healthBar[frame], nil, "ARTWORK", 1)
+            healAbsorb[frame] = healAbsorb[healthBar[frame]]
+            healAbsorb[frame]:ClearAllPoints()
+            healAbsorb[frame]:SetTexture("Interface\\RaidFrame\\Absorb-Fill", true, true)
 
-            frame._CHP_healthBar._CHP_healAbsorbLeftShadow = createTexture(frame._CHP_healthBar, nil, "ARTWORK", 1)
-            frame._CHP_healAbsorbLeftShadow = frame._CHP_healthBar._CHP_healAbsorbLeftShadow
-            frame._CHP_healAbsorbLeftShadow:ClearAllPoints()
-            frame._CHP_healAbsorbLeftShadow:SetTexture("Interface\\RaidFrame\\Absorb-Edge")
+            healAbsorbLeftShadow[healthBar[frame]] = createTexture(healthBar[frame], nil, "ARTWORK", 1)
+            healAbsorbLeftShadow[frame] = healAbsorbLeftShadow[healthBar[frame]]
+            healAbsorbLeftShadow[frame]:ClearAllPoints()
+            healAbsorbLeftShadow[frame]:SetTexture("Interface\\RaidFrame\\Absorb-Edge")
 
-            frame._CHP_healthBar._CHP_healAbsorbRightShadow = createTexture(frame._CHP_healthBar, nil, "ARTWORK", 1)
-            frame._CHP_healAbsorbRightShadow = frame._CHP_healthBar._CHP_healAbsorbRightShadow
-            frame._CHP_healAbsorbRightShadow:ClearAllPoints()
-            frame._CHP_healAbsorbRightShadow:SetTexture("Interface\\RaidFrame\\Absorb-Edge")
-            frame._CHP_healAbsorbRightShadow:SetTexCoord(1, 0, 0, 1)
+            healAbsorbRightShadow[healthBar[frame]] = createTexture(healthBar[frame], nil, "ARTWORK", 1)
+            healAbsorbRightShadow[frame] = healAbsorbRightShadow[healthBar[frame]]
+            healAbsorbRightShadow[frame]:ClearAllPoints()
+            healAbsorbRightShadow[frame]:SetTexture("Interface\\RaidFrame\\Absorb-Edge")
+            healAbsorbRightShadow[frame]:SetTexCoord(1, 0, 0, 1)
 
-            frame._CHP_healthBar._CHP_overAbsorbGlow = createTexture(frame._CHP_healthBar, nil, "ARTWORK", 2)
-            frame._CHP_overAbsorbGlow = frame._CHP_healthBar._CHP_overAbsorbGlow
-            frame._CHP_overAbsorbGlow:ClearAllPoints()
-            frame._CHP_overAbsorbGlow:SetTexture("Interface\\RaidFrame\\Shield-Overshield")
-            frame._CHP_overAbsorbGlow:SetBlendMode("ADD")
-            frame._CHP_overAbsorbGlow:SetPoint("BOTTOMLEFT", frame._CHP_healthBar, "BOTTOMRIGHT", -4, -1)
-            frame._CHP_overAbsorbGlow:SetPoint("TOPLEFT", frame._CHP_healthBar, "TOPRIGHT", -4, 1)
-            frame._CHP_overAbsorbGlow:SetHeight(8)
+            overAbsorbGlow[healthBar[frame]] = createTexture(healthBar[frame], nil, "ARTWORK", 2)
+            overAbsorbGlow[frame] = overAbsorbGlow[healthBar[frame]]
+            overAbsorbGlow[frame]:ClearAllPoints()
+            overAbsorbGlow[frame]:SetTexture("Interface\\RaidFrame\\Shield-Overshield")
+            overAbsorbGlow[frame]:SetBlendMode("ADD")
+            overAbsorbGlow[frame]:SetPoint("BOTTOMLEFT", healthBar[frame], "BOTTOMRIGHT", -4, -1)
+            overAbsorbGlow[frame]:SetPoint("TOPLEFT", healthBar[frame], "TOPRIGHT", -4, 1)
+            overAbsorbGlow[frame]:SetHeight(8)
 
-            frame._CHP_healthBar._CHP_overHealAbsorbGlow = createTexture(frame._CHP_healthBar, nil, "ARTWORK", 2)
-            frame._CHP_overHealAbsorbGlow = frame._CHP_healthBar._CHP_overHealAbsorbGlow
-            frame._CHP_overHealAbsorbGlow:ClearAllPoints()
-            frame._CHP_overHealAbsorbGlow:SetTexture("Interface\\RaidFrame\\Absorb-Overabsorb")
-            frame._CHP_overHealAbsorbGlow:SetBlendMode("ADD")
-            frame._CHP_overHealAbsorbGlow:SetPoint("BOTTOMRIGHT", frame._CHP_healthBar, "BOTTOMLEFT", 2, -1)
-            frame._CHP_overHealAbsorbGlow:SetPoint("TOPRIGHT", frame._CHP_healthBar, "TOPLEFT", 2, -1)
-            frame._CHP_overHealAbsorbGlow:SetHeight(8)
+            overHealAbsorbGlow[healthBar[frame]] = createTexture(healthBar[frame], nil, "ARTWORK", 2)
+            overHealAbsorbGlow[frame] = overHealAbsorbGlow[healthBar[frame]]
+            overHealAbsorbGlow[frame]:ClearAllPoints()
+            overHealAbsorbGlow[frame]:SetTexture("Interface\\RaidFrame\\Absorb-Overabsorb")
+            overHealAbsorbGlow[frame]:SetBlendMode("ADD")
+            overHealAbsorbGlow[frame]:SetPoint("BOTTOMRIGHT", healthBar[frame], "BOTTOMLEFT", 2, -1)
+            overHealAbsorbGlow[frame]:SetPoint("TOPRIGHT", healthBar[frame], "TOPLEFT", 2, -1)
+            overHealAbsorbGlow[frame]:SetHeight(8)
         end
     )
 
@@ -1061,7 +1081,7 @@ do
             textures[name] = createTexture(getChild(frame, unpack(depth)), name, layer, subLayer)
         end
 
-        frame._CHP_healthBar = frame.healthbar
+        healthBar[frame] = frame.healthbar
 
         frame.myManaCostPredictionBar = textures["$parentManaCostPredictionBar"]
 
@@ -1071,12 +1091,12 @@ do
             frame.myManaCostPredictionBar:ClearAllPoints()
             frame.myManaCostPredictionBar:SetTexture("Interface\\TargetingFrame\\UI-StatusBar")
 
-            frame._CHP_proxyFrame = CreateFrame("Frame")
-            frame._CHP_proxyFrame:RegisterUnitEvent("UNIT_SPELLCAST_START", frame.unit)
-            frame._CHP_proxyFrame:RegisterUnitEvent("UNIT_SPELLCAST_STOP", frame.unit)
-            frame._CHP_proxyFrame:RegisterUnitEvent("UNIT_SPELLCAST_FAILED", frame.unit)
-            frame._CHP_proxyFrame:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", frame.unit)
-            frame._CHP_proxyFrame:SetScript(
+            proxyFrame[frame] = CreateFrame("Frame")
+            proxyFrame[frame]:RegisterUnitEvent("UNIT_SPELLCAST_START", frame.unit)
+            proxyFrame[frame]:RegisterUnitEvent("UNIT_SPELLCAST_STOP", frame.unit)
+            proxyFrame[frame]:RegisterUnitEvent("UNIT_SPELLCAST_FAILED", frame.unit)
+            proxyFrame[frame]:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", frame.unit)
+            proxyFrame[frame]:SetScript(
                 "OnEvent",
                 function(_, ...)
                     unitFrame_OnEvent(frame, ...)
@@ -1084,71 +1104,71 @@ do
             )
         end
 
-        frame._CHP_myHealPrediction = textures["$parentMyHealPredictionBar"]
+        myHealPrediction[frame] = textures["$parentMyHealPredictionBar"]
 
-        if not frame._CHP_myHealPrediction then
+        if not myHealPrediction[frame] then
             UnitFrame_Update(frame)
             return
         end
 
-        frame._CHP_myHealPrediction:ClearAllPoints()
-        frame._CHP_myHealPrediction:SetTexture("Interface\\TargetingFrame\\UI-StatusBar")
+        myHealPrediction[frame]:ClearAllPoints()
+        myHealPrediction[frame]:SetTexture("Interface\\TargetingFrame\\UI-StatusBar")
 
-        frame._CHP_myHealPrediction2 = textures["$parentMyHealPredictionBar2"]
-        frame._CHP_myHealPrediction2:ClearAllPoints()
-        frame._CHP_myHealPrediction2:SetTexture("Interface\\TargetingFrame\\UI-StatusBar")
+        myHealPrediction2[frame] = textures["$parentMyHealPredictionBar2"]
+        myHealPrediction2[frame]:ClearAllPoints()
+        myHealPrediction2[frame]:SetTexture("Interface\\TargetingFrame\\UI-StatusBar")
 
-        frame._CHP_otherHealPrediction = textures["$parentOtherHealPredictionBar"]
-        frame._CHP_otherHealPrediction:ClearAllPoints()
-        frame._CHP_otherHealPrediction:SetTexture("Interface\\TargetingFrame\\UI-StatusBar")
+        otherHealPrediction[frame] = textures["$parentOtherHealPredictionBar"]
+        otherHealPrediction[frame]:ClearAllPoints()
+        otherHealPrediction[frame]:SetTexture("Interface\\TargetingFrame\\UI-StatusBar")
 
-        frame._CHP_otherHealPrediction2 = textures["$parentOtherHealPredictionBar2"]
-        frame._CHP_otherHealPrediction2:ClearAllPoints()
-        frame._CHP_otherHealPrediction2:SetTexture("Interface\\TargetingFrame\\UI-StatusBar")
+        otherHealPrediction2[frame] = textures["$parentOtherHealPredictionBar2"]
+        otherHealPrediction2[frame]:ClearAllPoints()
+        otherHealPrediction2[frame]:SetTexture("Interface\\TargetingFrame\\UI-StatusBar")
 
-        frame._CHP_totalAbsorb = textures["$parentTotalAbsorbBar"]
-        frame._CHP_totalAbsorb:ClearAllPoints()
-        frame._CHP_totalAbsorb:SetTexture("Interface\\RaidFrame\\Shield-Fill")
+        totalAbsorb[frame] = textures["$parentTotalAbsorbBar"]
+        totalAbsorb[frame]:ClearAllPoints()
+        totalAbsorb[frame]:SetTexture("Interface\\RaidFrame\\Shield-Fill")
 
-        frame._CHP_totalAbsorbOverlay = textures["$parentTotalAbsorbBarOverlay"]
-        frame._CHP_totalAbsorb.overlay = frame._CHP_totalAbsorbOverlay
-        frame._CHP_totalAbsorbOverlay:ClearAllPoints()
-        frame._CHP_totalAbsorbOverlay:SetTexture("Interface\\RaidFrame\\Shield-Overlay", true, true)
-        frame._CHP_totalAbsorbOverlay:SetAllPoints(frame._CHP_totalAbsorb)
-        frame._CHP_totalAbsorbOverlay.tileSize = 32
+        totalAbsorbOverlay[frame] = textures["$parentTotalAbsorbBarOverlay"]
+        totalAbsorb[frame].overlay = totalAbsorbOverlay[frame]
+        totalAbsorbOverlay[frame]:ClearAllPoints()
+        totalAbsorbOverlay[frame]:SetTexture("Interface\\RaidFrame\\Shield-Overlay", true, true)
+        totalAbsorbOverlay[frame]:SetAllPoints(totalAbsorb[frame])
+        totalAbsorbOverlay[frame].tileSize = 32
 
-        frame._CHP_healAbsorb = textures["$parentHealAbsorbBar"]
-        frame._CHP_healAbsorb:ClearAllPoints()
-        frame._CHP_healAbsorb:SetTexture("Interface\\RaidFrame\\Absorb-Fill", true, true)
+        healAbsorb[frame] = textures["$parentHealAbsorbBar"]
+        healAbsorb[frame]:ClearAllPoints()
+        healAbsorb[frame]:SetTexture("Interface\\RaidFrame\\Absorb-Fill", true, true)
 
-        frame._CHP_healAbsorbLeftShadow = textures["$parentHealAbsorbBarLeftShadow"]
-        frame._CHP_healAbsorbLeftShadow:ClearAllPoints()
-        frame._CHP_healAbsorbLeftShadow:SetTexture("Interface\\RaidFrame\\Absorb-Edge")
+        healAbsorbLeftShadow[frame] = textures["$parentHealAbsorbBarLeftShadow"]
+        healAbsorbLeftShadow[frame]:ClearAllPoints()
+        healAbsorbLeftShadow[frame]:SetTexture("Interface\\RaidFrame\\Absorb-Edge")
 
-        frame._CHP_healAbsorbRightShadow = textures["$parentHealAbsorbBarRightShadow"]
-        frame._CHP_healAbsorbRightShadow:ClearAllPoints()
-        frame._CHP_healAbsorbRightShadow:SetTexture("Interface\\RaidFrame\\Absorb-Edge")
-        frame._CHP_healAbsorbRightShadow:SetTexCoord(1, 0, 0, 1)
+        healAbsorbRightShadow[frame] = textures["$parentHealAbsorbBarRightShadow"]
+        healAbsorbRightShadow[frame]:ClearAllPoints()
+        healAbsorbRightShadow[frame]:SetTexture("Interface\\RaidFrame\\Absorb-Edge")
+        healAbsorbRightShadow[frame]:SetTexCoord(1, 0, 0, 1)
 
-        frame._CHP_overAbsorbGlow = textures["$parentOverAbsorbGlow"]
-        frame._CHP_overAbsorbGlow:ClearAllPoints()
-        frame._CHP_overAbsorbGlow:SetTexture("Interface\\RaidFrame\\Shield-Overshield")
-        frame._CHP_overAbsorbGlow:SetBlendMode("ADD")
-        frame._CHP_overAbsorbGlow:SetPoint("BOTTOMLEFT", frame._CHP_healthBar, "BOTTOMRIGHT", -7, 0)
-        frame._CHP_overAbsorbGlow:SetPoint("TOPLEFT", frame._CHP_healthBar, "TOPRIGHT", -7, 0)
-        frame._CHP_overAbsorbGlow:SetWidth(16)
+        overAbsorbGlow[frame] = textures["$parentOverAbsorbGlow"]
+        overAbsorbGlow[frame]:ClearAllPoints()
+        overAbsorbGlow[frame]:SetTexture("Interface\\RaidFrame\\Shield-Overshield")
+        overAbsorbGlow[frame]:SetBlendMode("ADD")
+        overAbsorbGlow[frame]:SetPoint("BOTTOMLEFT", healthBar[frame], "BOTTOMRIGHT", -7, 0)
+        overAbsorbGlow[frame]:SetPoint("TOPLEFT", healthBar[frame], "TOPRIGHT", -7, 0)
+        overAbsorbGlow[frame]:SetWidth(16)
 
-        frame._CHP_overHealAbsorbGlow = textures["$parentOverHealAbsorbGlow"]
-        frame._CHP_overHealAbsorbGlow:ClearAllPoints()
-        frame._CHP_overHealAbsorbGlow:SetTexture("Interface\\RaidFrame\\Absorb-Overabsorb")
-        frame._CHP_overHealAbsorbGlow:SetBlendMode("ADD")
-        frame._CHP_overHealAbsorbGlow:SetPoint("BOTTOMRIGHT", frame._CHP_healthBar, "BOTTOMLEFT", 7, 0)
-        frame._CHP_overHealAbsorbGlow:SetPoint("TOPRIGHT", frame._CHP_healthBar, "TOPLEFT", 7, 0)
-        frame._CHP_overHealAbsorbGlow:SetWidth(16)
+        overHealAbsorbGlow[frame] = textures["$parentOverHealAbsorbGlow"]
+        overHealAbsorbGlow[frame]:ClearAllPoints()
+        overHealAbsorbGlow[frame]:SetTexture("Interface\\RaidFrame\\Absorb-Overabsorb")
+        overHealAbsorbGlow[frame]:SetBlendMode("ADD")
+        overHealAbsorbGlow[frame]:SetPoint("BOTTOMRIGHT", healthBar[frame], "BOTTOMLEFT", 7, 0)
+        overHealAbsorbGlow[frame]:SetPoint("TOPRIGHT", healthBar[frame], "TOPLEFT", 7, 0)
+        overHealAbsorbGlow[frame]:SetWidth(16)
 
         frame:RegisterUnitEvent("UNIT_MAXHEALTH", frame.unit)
 
-        frame._CHP_healthBar:SetScript(
+        healthBar[frame]:SetScript(
             "OnSizeChanged",
             function(self)
                 UnitFrameHealPredictionBars_UpdateSize(self:GetParent())
