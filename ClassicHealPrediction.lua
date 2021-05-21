@@ -1,7 +1,3 @@
-if WOW_PROJECT_ID ~= WOW_PROJECT_CLASSIC then
-    return
-end
-
 local ADDON_NAME = ...
 local ADDON_VERSION = string.match(GetAddOnMetadata(ADDON_NAME, "Version"), "^v(%d+%.%d+%.%d+)$")
 
@@ -595,7 +591,7 @@ local function unitFrameManaCostPredictionBars_Update(frame, isStarting, startTi
     local cost = 0
 
     if not isStarting or startTime == endTime then
-        local currentSpellID = select(9, CastingInfo())
+        local currentSpellID = select(8, CastingInfo())
 
         if currentSpellID and frame.predictedPowerCost then
             cost = frame.predictedPowerCost
@@ -730,7 +726,7 @@ local function unitFrame_OnEvent(self, event, unit)
             defer_UnitFrameHealPredictionBars_Update(self)
         elseif event == "UNIT_SPELLCAST_START" or event == "UNIT_SPELLCAST_STOP" or event == "UNIT_SPELLCAST_FAILED" or event == "UNIT_SPELLCAST_SUCCEEDED" then
             assert(unit == "player")
-            local name, text, texture, startTime, endTime, isTradeSkill, castID, notInterruptible, spellID = CastingInfo()
+            local name, text, texture, startTime, endTime, isTradeSkill, castID, spellID = CastingInfo()
             unitFrameManaCostPredictionBars_Update(self, event == "UNIT_SPELLCAST_START", startTime, endTime, spellID)
         end
     end

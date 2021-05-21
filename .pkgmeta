@@ -10,8 +10,7 @@ externals:
         url: svn://svn.wowace.com/wow/callbackhandler/mainline/trunk/CallbackHandler-1.0
         tag: latest
     libs/LibHealComm-4.0:
-        url: https://repos.wowace.com/wow/libhealcomm-4-0
-        tag: v1.8.2
+        url: https://github.com/Azilroka/LibHealComm-4.0
 
 ignore:
     - README.md
