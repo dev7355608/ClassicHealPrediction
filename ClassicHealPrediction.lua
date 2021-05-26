@@ -30,6 +30,7 @@ local PlayerFrame = PlayerFrame
 local PetFrame = PetFrame
 local TargetFrame = TargetFrame
 local TargetFrameToT = TargetFrameToT
+local FocusFrame = FocusFrame
 local PartyMemberFrame = {}
 local PartyMemberFramePetFrame = {}
 
@@ -1079,7 +1080,9 @@ do
 
         healthBar[frame] = frame.healthbar
 
-        frame.myManaCostPredictionBar = textures["$parentManaCostPredictionBar"]
+        if not frame.myManaCostPredictionBar and textures["$parentManaCostPredictionBar"] then
+            frame.myManaCostPredictionBar = textures["$parentManaCostPredictionBar"]
+        end
 
         if frame.myManaCostPredictionBar then
             assert(frame.unit == "player")
@@ -1228,6 +1231,23 @@ do
 
     initUnitFrame(
         TargetFrameToT,
+        {
+            {{}, "$parentTotalAbsorbBar", "ARTWORK"},
+            {{}, "$parentTotalAbsorbBarOverlay", "ARTWORK", 1},
+            {{}, "$parentMyHealPredictionBar", "ARTWORK", 1},
+            {{}, "$parentOtherHealPredictionBar", "ARTWORK", 1},
+            {{}, "$parentMyHealPredictionBar2", "ARTWORK", 1},
+            {{}, "$parentOtherHealPredictionBar2", "ARTWORK", 1},
+            {{}, "$parentHealAbsorbBar", "ARTWORK", 1},
+            {{}, "$parentHealAbsorbBarLeftShadow", "ARTWORK", 1},
+            {{}, "$parentHealAbsorbBarRightShadow", "ARTWORK", 1},
+            {{1}, "$parentOverAbsorbGlow", "ARTWORK", 1},
+            {{1}, "$parentOverHealAbsorbGlow", "ARTWORK", 1}
+        }
+    )
+
+    initUnitFrame(
+        FocusFrame,
         {
             {{}, "$parentTotalAbsorbBar", "ARTWORK"},
             {{}, "$parentTotalAbsorbBarOverlay", "ARTWORK", 1},
