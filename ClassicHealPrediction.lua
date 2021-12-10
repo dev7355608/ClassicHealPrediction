@@ -26,6 +26,15 @@ local GetSpellPowerCost = GetSpellPowerCost
 local GetSpellInfo = GetSpellInfo
 local InCombatLockdown = InCombatLockdown
 
+if WOW_PROJECT_ID == WOW_PROJECT_CLASSIC then
+    local CastingInfoClassic = CastingInfo
+
+    CastingInfo = function()
+        local name, text, texture, startTime, endTime, isTradeSkill, castID, notInterruptible, spellID = CastingInfoClassic()
+        return name, text, texture, startTime, endTime, isTradeSkill, castID, spellID
+    end
+end
+
 local PlayerFrame = PlayerFrame
 local PetFrame = PetFrame
 local TargetFrame = TargetFrame
@@ -1246,22 +1255,24 @@ do
         }
     )
 
-    initUnitFrame(
-        FocusFrame,
-        {
-            {{}, "$parentTotalAbsorbBar", "ARTWORK"},
-            {{}, "$parentTotalAbsorbBarOverlay", "ARTWORK", 1},
-            {{}, "$parentMyHealPredictionBar", "ARTWORK", 1},
-            {{}, "$parentOtherHealPredictionBar", "ARTWORK", 1},
-            {{}, "$parentMyHealPredictionBar2", "ARTWORK", 1},
-            {{}, "$parentOtherHealPredictionBar2", "ARTWORK", 1},
-            {{}, "$parentHealAbsorbBar", "ARTWORK", 1},
-            {{}, "$parentHealAbsorbBarLeftShadow", "ARTWORK", 1},
-            {{}, "$parentHealAbsorbBarRightShadow", "ARTWORK", 1},
-            {{1}, "$parentOverAbsorbGlow", "ARTWORK", 1},
-            {{1}, "$parentOverHealAbsorbGlow", "ARTWORK", 1}
-        }
-    )
+    if WOW_PROJECT_ID == WOW_PROJECT_BURNING_CRUSADE_CLASSIC then
+        initUnitFrame(
+            FocusFrame,
+            {
+                {{}, "$parentTotalAbsorbBar", "ARTWORK"},
+                {{}, "$parentTotalAbsorbBarOverlay", "ARTWORK", 1},
+                {{}, "$parentMyHealPredictionBar", "ARTWORK", 1},
+                {{}, "$parentOtherHealPredictionBar", "ARTWORK", 1},
+                {{}, "$parentMyHealPredictionBar2", "ARTWORK", 1},
+                {{}, "$parentOtherHealPredictionBar2", "ARTWORK", 1},
+                {{}, "$parentHealAbsorbBar", "ARTWORK", 1},
+                {{}, "$parentHealAbsorbBarLeftShadow", "ARTWORK", 1},
+                {{}, "$parentHealAbsorbBarRightShadow", "ARTWORK", 1},
+                {{1}, "$parentOverAbsorbGlow", "ARTWORK", 1},
+                {{1}, "$parentOverHealAbsorbGlow", "ARTWORK", 1}
+            }
+        )
+    end
 
     for i = 1, MAX_PARTY_MEMBERS do
         initUnitFrame(
