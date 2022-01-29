@@ -611,10 +611,12 @@ local function unitFrameManaCostPredictionBars_Update(frame, isStarting, startTi
     else
         local costTable = GetSpellPowerCost(spellID)
 
-        for _, costInfo in pairs(costTable) do
-            if costInfo.type == frame.manabar.powerType then
-                cost = costInfo.cost
-                break
+        if costTable ~= nil then
+            for _, costInfo in pairs(costTable) do
+                if costInfo.type == frame.manabar.powerType then
+                    cost = costInfo.cost
+                    break
+                end
             end
         end
 
