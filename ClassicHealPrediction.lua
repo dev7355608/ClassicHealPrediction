@@ -26,15 +26,6 @@ local GetSpellPowerCost = GetSpellPowerCost
 local GetSpellInfo = GetSpellInfo
 local InCombatLockdown = InCombatLockdown
 
-if WOW_PROJECT_ID == WOW_PROJECT_CLASSIC then
-    local CastingInfoClassic = CastingInfo
-
-    CastingInfo = function()
-        local name, text, texture, startTime, endTime, isTradeSkill, castID, notInterruptible, spellID = CastingInfoClassic()
-        return name, text, texture, startTime, endTime, isTradeSkill, castID, spellID
-    end
-end
-
 local PlayerFrame = PlayerFrame
 local PetFrame = PetFrame
 local TargetFrame = TargetFrame
@@ -601,7 +592,7 @@ local function unitFrameManaCostPredictionBars_Update(frame, isStarting, startTi
     local cost = 0
 
     if not isStarting or startTime == endTime then
-        local currentSpellID = select(8, CastingInfo())
+        local currentSpellID = select(9, CastingInfo())
 
         if currentSpellID and frame.predictedPowerCost then
             cost = frame.predictedPowerCost
@@ -611,12 +602,10 @@ local function unitFrameManaCostPredictionBars_Update(frame, isStarting, startTi
     else
         local costTable = GetSpellPowerCost(spellID)
 
-        if costTable ~= nil then
-            for _, costInfo in pairs(costTable) do
-                if costInfo.type == frame.manabar.powerType then
-                    cost = costInfo.cost
-                    break
-                end
+        for _, costInfo in pairs(costTable) do
+            if costInfo.type == frame.manabar.powerType then
+                cost = costInfo.cost
+                break
             end
         end
 
@@ -738,7 +727,7 @@ local function unitFrame_OnEvent(self, event, unit)
             defer_UnitFrameHealPredictionBars_Update(self)
         elseif event == "UNIT_SPELLCAST_START" or event == "UNIT_SPELLCAST_STOP" or event == "UNIT_SPELLCAST_FAILED" or event == "UNIT_SPELLCAST_SUCCEEDED" then
             assert(unit == "player")
-            local name, text, texture, startTime, endTime, isTradeSkill, castID, spellID = CastingInfo()
+            local name, text, texture, startTime, endTime, isTradeSkill, castID, notInterruptible, spellID = CastingInfo()
             unitFrameManaCostPredictionBars_Update(self, event == "UNIT_SPELLCAST_START", startTime, endTime, spellID)
         end
     end
