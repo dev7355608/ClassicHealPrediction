@@ -1514,7 +1514,8 @@ local function ClassicHealPredictionFrame_OnLoad(self)
             {"Show healing of others", HealComm.ALL_HEALS},
             {"Show direct healing", HealComm.DIRECT_HEALS},
             {"Show healing over time", HealComm.HOT_HEALS},
-            {"Show channeled healing", HealComm.CHANNEL_HEALS}
+            {"Show channeled healing", HealComm.CHANNEL_HEALS},
+            {"Show bomb healing", HealComm.BOMB_HEALS}
         }
     ) do
         local text, flag = unpack(x)
