@@ -1654,7 +1654,7 @@ local function ClassicHealPredictionFrame_OnLoad(self)
     local sliderName2 = "ClassicHealPredictionSlider2"
     slider2 = CreateFrame("Slider", sliderName2, self, "OptionsSliderTemplate")
 
-    sliderCheckBox2:SetPoint("TOPLEFT", checkBoxes[1], "BOTTOMLEFT", 0, -155)
+    sliderCheckBox2:SetPoint("TOPLEFT", checkBoxes[1], "BOTTOMLEFT", 0, -180)
     sliderCheckBox2.Text = _G[sliderCheckBoxName2 .. "Text"]
     sliderCheckBox2.Text:SetText("Use different colors if overhealing exceeds ... percent of max health")
     sliderCheckBox2.Text:SetTextColor(1, 1, 1)
