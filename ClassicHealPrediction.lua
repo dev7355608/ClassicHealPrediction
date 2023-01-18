@@ -18,6 +18,7 @@ local unpack = unpack
 local next = next
 
 local GetTime = GetTime
+local CreateColor = CreateColor
 
 local UnitGUID = UnitGUID
 local UnitCanAssist = UnitCanAssist
@@ -376,7 +377,7 @@ local function updateHealPrediction(frame, unit, cutoff, gradient, colorPalette,
         if a == 0 then
             myIncomingHeal1 = 0
         else
-            myHealPrediction1:SetGradientAlpha("VERTICAL", r2, g2, b2, a, r, g, b, a)
+            myHealPrediction1:SetGradient("VERTICAL", CreateColor(r2, g2, b2, a), CreateColor(r, g, b, a))
         end
 
         r, g, b, a, r2, g2, b2 = unpack(colors[colorPalette[2]])
@@ -384,7 +385,7 @@ local function updateHealPrediction(frame, unit, cutoff, gradient, colorPalette,
         if a == 0 then
             myIncomingHeal2 = 0
         else
-            myHealPrediction2:SetGradientAlpha("VERTICAL", r2, g2, b2, a, r, g, b, a)
+            myHealPrediction2:SetGradient("VERTICAL", CreateColor(r2, g2, b2, a), CreateColor(r, g, b, a))
         end
 
         r, g, b, a, r2, g2, b2 = unpack(colors[colorPalette[3]])
@@ -392,7 +393,7 @@ local function updateHealPrediction(frame, unit, cutoff, gradient, colorPalette,
         if a == 0 then
             otherIncomingHeal1 = 0
         else
-            otherHealPrediction1:SetGradientAlpha("VERTICAL", r2, g2, b2, a, r, g, b, a)
+            otherHealPrediction1:SetGradient("VERTICAL", CreateColor(r2, g2, b2, a), CreateColor(r, g, b, a))
         end
 
         r, g, b, a, r2, g2, b2 = unpack(colors[colorPalette[4]])
@@ -400,7 +401,7 @@ local function updateHealPrediction(frame, unit, cutoff, gradient, colorPalette,
         if a == 0 then
             otherIncomingHeal2 = 0
         else
-            otherHealPrediction2:SetGradientAlpha("VERTICAL", r2, g2, b2, a, r, g, b, a)
+            otherHealPrediction2:SetGradient("VERTICAL", CreateColor(r2, g2, b2, a), CreateColor(r, g, b, a))
         end
     else
         local r, g, b, a
