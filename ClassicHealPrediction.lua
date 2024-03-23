@@ -51,6 +51,16 @@ local function toggleValue(value, bool)
     return value
 end
 
+local colorCache = {}
+local function getColor(r, g, b, a)
+    a = a or 1
+    colorCache[r] = colorCache[r] or {}
+    colorCache[r][g] = colorCache[r][g] or {}
+    colorCache[r][g][b] = colorCache[r][g][b] or {}
+    colorCache[r][g][b][a] = colorCache[r][g][b][a] or CreateColor(r, g, b, a)
+    return colorCache[r][g][b][a]
+end
+
 local function rgbToHsl(r, g, b, a)
     local max, min = max(r, g, b), min(r, g, b)
     local h, s, l
@@ -377,7 +387,7 @@ local function updateHealPrediction(frame, unit, cutoff, gradient, colorPalette,
         if a == 0 then
             myIncomingHeal1 = 0
         else
-            myHealPrediction1:SetGradient("VERTICAL", CreateColor(r2, g2, b2, a), CreateColor(r, g, b, a))
+            myHealPrediction1:SetGradient("VERTICAL", getColor(r2, g2, b2, a), getColor(r, g, b, a))
         end
 
         r, g, b, a, r2, g2, b2 = unpack(colors[colorPalette[2]])
@@ -385,7 +395,7 @@ local function updateHealPrediction(frame, unit, cutoff, gradient, colorPalette,
         if a == 0 then
             myIncomingHeal2 = 0
         else
-            myHealPrediction2:SetGradient("VERTICAL", CreateColor(r2, g2, b2, a), CreateColor(r, g, b, a))
+            myHealPrediction2:SetGradient("VERTICAL", getColor(r2, g2, b2, a), getColor(r, g, b, a))
         end
 
         r, g, b, a, r2, g2, b2 = unpack(colors[colorPalette[3]])
@@ -393,7 +403,7 @@ local function updateHealPrediction(frame, unit, cutoff, gradient, colorPalette,
         if a == 0 then
             otherIncomingHeal1 = 0
         else
-            otherHealPrediction1:SetGradient("VERTICAL", CreateColor(r2, g2, b2, a), CreateColor(r, g, b, a))
+            otherHealPrediction1:SetGradient("VERTICAL", getColor(r2, g2, b2, a), getColor(r, g, b, a))
         end
 
         r, g, b, a, r2, g2, b2 = unpack(colors[colorPalette[4]])
@@ -401,7 +411,7 @@ local function updateHealPrediction(frame, unit, cutoff, gradient, colorPalette,
         if a == 0 then
             otherIncomingHeal2 = 0
         else
-            otherHealPrediction2:SetGradient("VERTICAL", CreateColor(r2, g2, b2, a), CreateColor(r, g, b, a))
+            otherHealPrediction2:SetGradient("VERTICAL", getColor(r2, g2, b2, a), getColor(r, g, b, a))
         end
     else
         local r, g, b, a
