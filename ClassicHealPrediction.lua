@@ -18,7 +18,6 @@ local unpack = unpack
 local next = next
 
 local GetTime = GetTime
-local CreateColor = CreateColor
 
 local UnitGUID = UnitGUID
 local UnitCanAssist = UnitCanAssist
@@ -49,6 +48,16 @@ local function toggleValue(value, bool)
         value = -(value + 1)
     end
     return value
+end
+
+local origCreateColor = CreateColor
+local colorCache = {}
+local function CreateColor(r, g, b, a)
+	colorCache[r] = colorCache[r] or {}
+	colorCache[r][g] = colorCache[r][g] or {}
+	colorCache[r][g][b] = colorCache[r][g][b] or {}
+	colorCache[r][g][b][a or ""] = colorCache[r][g][b][a or ""] or origCreateColor(r, g, b, a)
+	return colorCache[r][g][b][a or ""]
 end
 
 local function rgbToHsl(r, g, b, a)
