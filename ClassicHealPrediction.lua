@@ -1206,22 +1206,24 @@ do
         }
     )
 
-    initUnitFrame(
-        PetFrame,
-        {
-            {{}, "$parentTotalAbsorbBar", "ARTWORK"},
-            {{}, "$parentTotalAbsorbBarOverlay", "ARTWORK", 1},
-            {{2, 1}, "$parentMyHealPredictionBar", "BACKGROUND"},
-            {{2, 1}, "$parentOtherHealPredictionBar", "BACKGROUND"},
-            {{2, 1}, "$parentMyHealPredictionBar2", "BACKGROUND"},
-            {{2, 1}, "$parentOtherHealPredictionBar2", "BACKGROUND"},
-            {{2, 1}, "$parentHealAbsorbBar", "BACKGROUND"},
-            {{2, 1}, "$parentHealAbsorbBarLeftShadow", "BACKGROUND"},
-            {{2, 1}, "$parentHealAbsorbBarRightShadow", "BACKGROUND"},
-            {{2, 1}, "$parentOverAbsorbGlow", "ARTWORK"},
-            {{2, 1}, "$parentOverHealAbsorbGlow", "ARTWORK"}
-        }
-    )
+    if PetFrame ~= nil then
+        initUnitFrame(
+            PetFrame,
+            {
+                {{}, "$parentTotalAbsorbBar", "ARTWORK"},
+                {{}, "$parentTotalAbsorbBarOverlay", "ARTWORK", 1},
+                {{2, 1}, "$parentMyHealPredictionBar", "BACKGROUND"},
+                {{2, 1}, "$parentOtherHealPredictionBar", "BACKGROUND"},
+                {{2, 1}, "$parentMyHealPredictionBar2", "BACKGROUND"},
+                {{2, 1}, "$parentOtherHealPredictionBar2", "BACKGROUND"},
+                {{2, 1}, "$parentHealAbsorbBar", "BACKGROUND"},
+                {{2, 1}, "$parentHealAbsorbBarLeftShadow", "BACKGROUND"},
+                {{2, 1}, "$parentHealAbsorbBarRightShadow", "BACKGROUND"},
+                {{2, 1}, "$parentOverAbsorbGlow", "ARTWORK"},
+                {{2, 1}, "$parentOverHealAbsorbGlow", "ARTWORK"}
+            }
+        )
+    end
 
     initUnitFrame(
         TargetFrame,
