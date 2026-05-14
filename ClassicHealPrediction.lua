@@ -1,4 +1,5 @@
 local ADDON_NAME = ...
+local GetAddOnMetadata = GetAddOnMetadata or (C_AddOns and C_AddOns.GetAddOnMetadata)
 local ADDON_VERSION = string.match(GetAddOnMetadata(ADDON_NAME, "Version"), "^v(%d+%.%d+%.%d+)$")
 
 local HealComm = LibStub("LibHealComm-4.0")
